@@ -49,7 +49,7 @@
         </div>
         <div class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            Server Active
+            Vercel API Active
         </div>
     </header>
 
@@ -169,7 +169,7 @@
             }
 
             const dataId = generateUniqueId(4, 8);
-            generatedResult = `loadstring(game:HttpGet("https://api.lua-protect.com/v1?data=${dataId}"))()`;
+            generatedResult = `loadstring(game:HttpGet("https://lua-protect.vercel.app/v1/?data=${dataId}"))()`;
             outputText.innerText = generatedResult;
             outputText.classList.remove('text-slate-400');
             outputText.classList.add('text-indigo-300');
