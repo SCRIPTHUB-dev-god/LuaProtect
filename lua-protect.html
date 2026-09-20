@@ -145,22 +145,6 @@
             charCount.innerText = `${luaInput.value.length} chars`;
         });
 
-        function generateUniqueId(min = 4, max = 8) {
-            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-            let result = '';
-            let isDuplicate = true;
-
-            while (isDuplicate) {
-                const length = Math.floor(Math.random() * (max - min + 1)) + min;
-                result = '';
-                for (let i = 0; i < length; i++) {
-                    result += chars.charAt(Math.floor(Math.random() * chars.length));
-                }
-                isDuplicate = savedProtects.some(item => item.dataId === result);
-            }
-            return result;
-        }
-
         function generateLink() {
             const code = luaInput.value.trim();
             if (!code) {
@@ -168,15 +152,15 @@
                 return;
             }
 
-            const dataId = generateUniqueId(4, 8);
-            generatedResult = `loadstring(game:HttpGet("https://lua-protect.vercel.app/v1/?data=${dataId}"))()`;
+            const encodedData = btoa(encodeURIComponent(code));
+            generatedResult = `loadstring(game:HttpGet("https://lua-protect.vercel.app/v1/?data=${encodeURIComponent(encodedData)}"))()`;
             outputText.innerText = generatedResult;
             outputText.classList.remove('text-slate-400');
             outputText.classList.add('text-indigo-300');
 
             const newItem = {
                 id: Date.now().toString(),
-                dataId: dataId,
+                dataId: encodedData.substring(0, 8),
                 link: generatedResult,
                 status: 'public',
                 createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
