@@ -108,16 +108,22 @@
             charCount.innerText = `${luaInput.value.length} chars`;
         });
 
+        function generateHash(length = 32) {
+            const array = new Uint8Array(length / 2);
+            window.crypto.getRandomValues(array);
+            return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+        }
+
         function generateLink() {
             const code = luaInput.value.trim();
             if (!code) {
                 alert("Please enter a Lua script first!");
                 return;
             }
+            const hashKey = generateHash(32);
             const encoded = btoa(encodeURIComponent(code));
-            const randomId = Math.floor(10000000 + Math.random() * 90000000);
             const baseUrl = window.location.origin;
-            generatedResult = `loadstring(game:HttpGet("${baseUrl}/protect/id=${randomId}?data=${encoded}"))()`;
+            generatedResult = `loadstring(game:HttpGet("${baseUrl}/api/raw/${hashKey}?data=${encoded}"))()`;
             outputText.innerText = generatedResult;
             outputText.classList.remove('text-slate-400');
             outputText.classList.add('text-indigo-300');
