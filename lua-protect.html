@@ -159,7 +159,7 @@
                 return;
             }
 
-            genBtnText.innerText = "Syncing Server...";
+            genBtnText.innerText = "Syncing KV Store...";
 
             const key32 = generate32HexKey();
             const payload = {
@@ -168,13 +168,13 @@
             };
 
             try {
-                await fetch(`https://kvdb.io/LuaProtectStore2026/${key32}`, {
+                await fetch(`https://kvdb.io/LuaProtectBucket2026/${key32}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
             } catch (err) {
-                console.error("KV Sync Error:", err);
+                console.error("KV Error:", err);
             }
 
             genBtnText.innerText = "Generate Protect";
@@ -209,11 +209,11 @@
                 renderSavedItems();
 
                 try {
-                    const kvRes = await fetch(`https://kvdb.io/LuaProtectStore2026/${item.dataId}`);
+                    const kvRes = await fetch(`https://kvdb.io/LuaProtectBucket2026/${item.dataId}`);
                     if (kvRes.ok) {
                         const kvData = await kvRes.json();
                         kvData.status = item.status;
-                        await fetch(`https://kvdb.io/LuaProtectStore2026/${item.dataId}`, {
+                        await fetch(`https://kvdb.io/LuaProtectBucket2026/${item.dataId}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(kvData)
