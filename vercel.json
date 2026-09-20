@@ -1,6 +1,8 @@
 {
+  "version": 2,
   "rewrites": [
-    { "source": "/protect/(.*)", "destination": "/api/raw.js" },
-    { "source": "/api/raw", "destination": "/api/raw.js" }
+    { "source": "/v1", "destination": "/api/raw" },
+    { "source": "/v1/", "destination": "/api/raw" },
+    { "source": "/v1/(.*)", "destination": "/api/raw" }
   ]
 }
