@@ -8,12 +8,25 @@ export default function handler(req, res) {
 
     if (data) {
         try {
-            luaCode = Buffer.from(data, 'base64').toString('utf-8');
-        } catch (e) {
+            const decoded = Buffer.from(data, 'base64').toString('utf-8');
+            if (/[\x00-\x08\x0E-\x1F]/.test(decoded)) {
+                try {
+                    luaCode = decodeURIComponent(data);
+                } catch {
+                    luaCode = data;
+                }
+            } else {
+                try {
+                    luaCode = decodeURIComponent(decoded);
+                } catch {
+                    luaCode = decoded;
+                }
+            }
+        } catch {
             try {
-                luaCode = decodeURIComponent(atob(data));
-            } catch (err) {
-                luaCode = "print('Failed to decode payload')";
+                luaCode = decodeURIComponent(data);
+            } catch {
+                luaCode = data;
             }
         }
     }
