@@ -145,19 +145,8 @@
             charCount.innerText = `${luaInput.value.length} chars`;
         });
 
-        function generateHWID() {
-            const chars = '0123456789abcdef';
-            let result = '';
-            let isDuplicate = true;
-
-            while (isDuplicate) {
-                result = '';
-                for (let i = 0; i < 32; i++) {
-                    result += chars.charAt(Math.floor(Math.random() * chars.length));
-                }
-                isDuplicate = savedProtects.some(item => item.dataId === result);
-            }
-            return result;
+        function stringToHex(str) {
+            return Array.from(new TextEncoder().encode(str)).map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
         function generateLink() {
@@ -167,15 +156,15 @@
                 return;
             }
 
-            const hwid = generateHWID();
-            generatedResult = `loadstring(game:HttpGet("https://lua-protect.vercel.app/v1/?data=${hwid}"))()`;
+            const hexData = stringToHex(code);
+            generatedResult = `loadstring(game:HttpGet("https://lua-protect.vercel.app/v1/?data=${hexData}"))()`;
             outputText.innerText = generatedResult;
             outputText.classList.remove('text-slate-400');
             outputText.classList.add('text-indigo-300');
 
             const newItem = {
                 id: Date.now().toString(),
-                dataId: hwid,
+                dataId: hexData.substring(0, 32),
                 link: generatedResult,
                 status: 'public',
                 createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -238,7 +227,7 @@
                 card.innerHTML = `
                     <div class="flex items-center justify-between text-xs">
                         <div class="flex items-center gap-2">
-                            <span class="font-mono text-indigo-400 font-bold">HWID: ${item.dataId}</span>
+                            <span class="font-mono text-indigo-400 font-bold">HEX: ${item.dataId}</span>
                             <span class="text-slate-600">•</span>
                             <span class="text-slate-500">${item.createdAt}</span>
                         </div>
