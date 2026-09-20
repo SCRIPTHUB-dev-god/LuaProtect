@@ -115,8 +115,9 @@
                 return;
             }
             const encoded = btoa(encodeURIComponent(code));
+            const randomId = Math.floor(10000000 + Math.random() * 90000000);
             const baseUrl = window.location.origin;
-            generatedResult = `loadstring(game:HttpGet("${baseUrl}/api/raw?data=${encoded}"))()`;
+            generatedResult = `loadstring(game:HttpGet("${baseUrl}/protect/id=${randomId}?data=${encoded}"))()`;
             outputText.innerText = generatedResult;
             outputText.classList.remove('text-slate-400');
             outputText.classList.add('text-indigo-300');
@@ -124,7 +125,7 @@
 
         function clearAll() {
             luaInput.value = "";
-            outputText.innerText = "Generated loadstring will appear here...";
+            outputText.innerText = "Generated Protect finish in here";
             outputText.classList.remove('text-indigo-300');
             outputText.classList.add('text-slate-400');
             charCount.innerText = "0 chars";
@@ -168,7 +169,7 @@
             copyText.innerText = "Copied!";
             copyIcon.className = "fa-solid fa-check text-emerald-400";
             setTimeout(() => {
-                copyText.innerText = "Copy Output";
+                copyText.innerText = "Copy";
                 copyIcon.className = "fa-solid fa-copy";
             }, 2000);
         }
