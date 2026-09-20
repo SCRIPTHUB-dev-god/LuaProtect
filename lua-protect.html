@@ -67,9 +67,9 @@
                     <textarea id="luaInput" placeholder="Enter your Lua script in here" class="w-full h-80 bg-slate-950/80 border border-slate-800 rounded-xl p-4 text-xs font-mono text-indigo-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition resize-none"></textarea>
                     
                     <div class="flex items-center gap-3 mt-4">
-                        <button onclick="generateLink()" class="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20">
+                        <button id="genBtn" onclick="generateLink()" class="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20">
                             <i class="fa-solid fa-wand-magic-sparkles"></i>
-                            Generate Protect
+                            <span id="genBtnText">Generate Protect</span>
                         </button>
                         <button onclick="clearAll()" class="py-3 px-5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 font-semibold text-xs transition flex items-center justify-center gap-2">
                             <i class="fa-solid fa-trash-can text-red-400"></i>
@@ -137,6 +137,7 @@
         const savedContainer = document.getElementById('savedContainer');
         const emptyState = document.getElementById('emptyState');
         const savedCount = document.getElementById('savedCount');
+        const genBtnText = document.getElementById('genBtnText');
         
         let generatedResult = "";
         let savedProtects = JSON.parse(localStorage.getItem('lua_saved_protects') || '[]');
@@ -145,28 +146,47 @@
             charCount.innerText = `${luaInput.value.length} chars`;
         });
 
-        function generateHex32() {
+        function generate32HexKey() {
             const bytes = new Uint8Array(16);
             window.crypto.getRandomValues(bytes);
             return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
         }
 
-        function generateLink() {
+        async function generateLink() {
             const code = luaInput.value.trim();
             if (!code) {
                 alert("Please enter a Lua script first!");
                 return;
             }
 
-            const hex32 = generateHex32();
-            generatedResult = `loadstring(game:HttpGet("https://lua-protect.vercel.app/v1/?data=${hex32}"))()`;
+            genBtnText.innerText = "Syncing Server...";
+
+            const key32 = generate32HexKey();
+            const payload = {
+                code: code,
+                status: 'public'
+            };
+
+            try {
+                await fetch(`https://kvdb.io/LuaProtectStore2026/${key32}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } catch (err) {
+                console.error("KV Sync Error:", err);
+            }
+
+            genBtnText.innerText = "Generate Protect";
+
+            generatedResult = `loadstring(game:HttpGet("https://lua-protect.vercel.app/v1/?data=${key32}"))()`;
             outputText.innerText = generatedResult;
             outputText.classList.remove('text-slate-400');
             outputText.classList.add('text-indigo-300');
 
             const newItem = {
                 id: Date.now().toString(),
-                dataId: hex32,
+                dataId: key32,
                 link: generatedResult,
                 status: 'public',
                 createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -181,12 +201,25 @@
             localStorage.setItem('lua_saved_protects', JSON.stringify(savedProtects));
         }
 
-        function toggleStatus(id) {
+        async function toggleStatus(id) {
             const item = savedProtects.find(i => i.id === id);
             if (item) {
                 item.status = item.status === 'public' ? 'unpublic' : 'public';
                 saveToStorage();
                 renderSavedItems();
+
+                try {
+                    const kvRes = await fetch(`https://kvdb.io/LuaProtectStore2026/${item.dataId}`);
+                    if (kvRes.ok) {
+                        const kvData = await kvRes.json();
+                        kvData.status = item.status;
+                        await fetch(`https://kvdb.io/LuaProtectStore2026/${item.dataId}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(kvData)
+                        });
+                    }
+                } catch(e) {}
             }
         }
 
@@ -229,7 +262,7 @@
                 card.innerHTML = `
                     <div class="flex items-center justify-between text-xs">
                         <div class="flex items-center gap-2">
-                            <span class="font-mono text-indigo-400 font-bold">HEX (32): ${item.dataId}</span>
+                            <span class="font-mono text-indigo-400 font-bold">KEY (32): ${item.dataId}</span>
                             <span class="text-slate-600">•</span>
                             <span class="text-slate-500">${item.createdAt}</span>
                         </div>
