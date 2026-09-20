@@ -47,9 +47,9 @@
                 <p class="text-xs text-slate-400 mt-1">free Lua Protect lifetime</p>
             </div>
         </div>
-        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-            <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
-            Vercel Engine
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            Server Active
         </div>
     </header>
 
@@ -127,7 +127,7 @@
     </main>
 
     <footer class="w-full max-w-6xl mx-auto mt-8 text-center text-xs text-slate-600">
-        Lua Protect &copy; 2026 Vercel Deployment
+        Lua Protect &copy; 2026 Lifetime System
     </footer>
 
     <script>
@@ -169,7 +169,7 @@
             }
 
             const dataId = generateUniqueId(4, 8);
-            generatedResult = `loadstring(game:HttpGet("https://lua-protect.vercel.app/v1?data=${dataId}"))()`;
+            generatedResult = `loadstring(game:HttpGet("https://api.lua-protect.com/v1?data=${dataId}"))()`;
             outputText.innerText = generatedResult;
             outputText.classList.remove('text-slate-400');
             outputText.classList.add('text-indigo-300');
