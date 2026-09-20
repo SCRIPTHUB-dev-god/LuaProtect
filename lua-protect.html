@@ -145,6 +145,10 @@
             charCount.innerText = `${luaInput.value.length} chars`;
         });
 
+        function stringToHex(str) {
+            return Array.from(new TextEncoder().encode(str)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
         function generateLink() {
             const code = luaInput.value.trim();
             if (!code) {
@@ -152,15 +156,15 @@
                 return;
             }
 
-            const encodedData = btoa(encodeURIComponent(code));
-            generatedResult = `loadstring(game:HttpGet("https://lua-protect.vercel.app/v1/?data=${encodeURIComponent(encodedData)}"))()`;
+            const hexData = stringToHex(code);
+            generatedResult = `loadstring(game:HttpGet("https://lua-protect.vercel.app/v1/?data=${hexData}"))()`;
             outputText.innerText = generatedResult;
             outputText.classList.remove('text-slate-400');
             outputText.classList.add('text-indigo-300');
 
             const newItem = {
                 id: Date.now().toString(),
-                dataId: encodedData.substring(0, 8),
+                dataId: hexData.substring(0, 8),
                 link: generatedResult,
                 status: 'public',
                 createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -223,7 +227,7 @@
                 card.innerHTML = `
                     <div class="flex items-center justify-between text-xs">
                         <div class="flex items-center gap-2">
-                            <span class="font-mono text-indigo-400 font-bold">ID: ${item.dataId}</span>
+                            <span class="font-mono text-indigo-400 font-bold">HEX: ${item.dataId}</span>
                             <span class="text-slate-600">•</span>
                             <span class="text-slate-500">${item.createdAt}</span>
                         </div>
