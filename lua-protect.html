@@ -49,7 +49,7 @@
         </div>
         <div class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            Vercel API Active
+            Gateway System Active
         </div>
     </header>
 
@@ -67,9 +67,9 @@
                     <textarea id="luaInput" placeholder="Enter your Lua script in here" class="w-full h-80 bg-slate-950/80 border border-slate-800 rounded-xl p-4 text-xs font-mono text-indigo-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition resize-none"></textarea>
                     
                     <div class="flex items-center gap-3 mt-4">
-                        <button id="genBtn" onclick="generateLink()" class="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20">
+                        <button onclick="generateLink()" class="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20">
                             <i class="fa-solid fa-wand-magic-sparkles"></i>
-                            <span id="genBtnText">Generate Protect</span>
+                            Generate Protect
                         </button>
                         <button onclick="clearAll()" class="py-3 px-5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 font-semibold text-xs transition flex items-center justify-center gap-2">
                             <i class="fa-solid fa-trash-can text-red-400"></i>
@@ -137,7 +137,6 @@
         const savedContainer = document.getElementById('savedContainer');
         const emptyState = document.getElementById('emptyState');
         const savedCount = document.getElementById('savedCount');
-        const genBtnText = document.getElementById('genBtnText');
         
         let generatedResult = "";
         let savedProtects = JSON.parse(localStorage.getItem('lua_saved_protects') || '[]');
@@ -146,47 +145,30 @@
             charCount.innerText = `${luaInput.value.length} chars`;
         });
 
-        function generate32HexKey() {
-            const bytes = new Uint8Array(16);
-            window.crypto.getRandomValues(bytes);
+        function stringToHex(str) {
+            const encoder = new TextEncoder();
+            const bytes = encoder.encode(str);
             return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
         }
 
-        async function generateLink() {
+        function generateLink() {
             const code = luaInput.value.trim();
             if (!code) {
                 alert("Please enter a Lua script first!");
                 return;
             }
 
-            genBtnText.innerText = "Syncing KV Store...";
-
-            const key32 = generate32HexKey();
-            const payload = {
-                code: code,
-                status: 'public'
-            };
-
-            try {
-                await fetch(`https://kvdb.io/LuaProtectBucket2026/${key32}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-            } catch (err) {
-                console.error("KV Error:", err);
-            }
-
-            genBtnText.innerText = "Generate Protect";
-
-            generatedResult = `loadstring(game:HttpGet("https://lua-protect.vercel.app/v1/?data=${key32}"))()`;
+            const hexData = stringToHex(code);
+            generatedResult = `loadstring(game:HttpGet("https://lua-protect.vercel.app/v1/?data=${hexData}"))()`;
             outputText.innerText = generatedResult;
             outputText.classList.remove('text-slate-400');
             outputText.classList.add('text-indigo-300');
 
+            const display32Hex = hexData.length >= 32 ? hexData.substring(0, 32) : hexData.padEnd(32, '0');
+
             const newItem = {
                 id: Date.now().toString(),
-                dataId: key32,
+                dataId: display32Hex,
                 link: generatedResult,
                 status: 'public',
                 createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -201,25 +183,12 @@
             localStorage.setItem('lua_saved_protects', JSON.stringify(savedProtects));
         }
 
-        async function toggleStatus(id) {
+        function toggleStatus(id) {
             const item = savedProtects.find(i => i.id === id);
             if (item) {
                 item.status = item.status === 'public' ? 'unpublic' : 'public';
                 saveToStorage();
                 renderSavedItems();
-
-                try {
-                    const kvRes = await fetch(`https://kvdb.io/LuaProtectBucket2026/${item.dataId}`);
-                    if (kvRes.ok) {
-                        const kvData = await kvRes.json();
-                        kvData.status = item.status;
-                        await fetch(`https://kvdb.io/LuaProtectBucket2026/${item.dataId}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(kvData)
-                        });
-                    }
-                } catch(e) {}
             }
         }
 
@@ -262,7 +231,7 @@
                 card.innerHTML = `
                     <div class="flex items-center justify-between text-xs">
                         <div class="flex items-center gap-2">
-                            <span class="font-mono text-indigo-400 font-bold">KEY (32): ${item.dataId}</span>
+                            <span class="font-mono text-indigo-400 font-bold">HEX (32): ${item.dataId}</span>
                             <span class="text-slate-600">•</span>
                             <span class="text-slate-500">${item.createdAt}</span>
                         </div>
