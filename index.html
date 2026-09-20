@@ -37,12 +37,12 @@
             </div>
             <div>
                 <h1 class="font-bold text-lg leading-none tracking-wide text-white">LUA<span class="gradient-text">PROTECT</span></h1>
-                <p class="text-xs text-slate-400 mt-1">404 Polyglot Obfuscator & Deployer</p>
+                <p class="text-xs text-slate-400 mt-1">free Lua Protect lifetime</p>
             </div>
         </div>
         <div class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
             <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
-            Vercel Engine Ready
+            Vercel Engine
         </div>
     </header>
 
@@ -52,16 +52,16 @@
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center gap-2">
                         <i class="fa-solid fa-code text-indigo-400"></i>
-                        <span class="font-semibold text-sm text-white">Lua Input Payload</span>
+                        <span class="font-semibold text-sm text-white">Input</span>
                     </div>
                     <span class="text-xs text-slate-500" id="charCount">0 chars</span>
                 </div>
-                <textarea id="luaInput" placeholder="Enter your Lua script or target loadstring here..." class="w-full h-80 bg-slate-950/80 border border-slate-800 rounded-xl p-4 text-xs font-mono text-indigo-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition resize-none"></textarea>
+                <textarea id="luaInput" placeholder="Enter your Lua script in here" class="w-full h-80 bg-slate-950/80 border border-slate-800 rounded-xl p-4 text-xs font-mono text-indigo-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition resize-none"></textarea>
                 
                 <div class="flex items-center gap-3 mt-4">
                     <button onclick="generateLink()" class="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20">
                         <i class="fa-solid fa-wand-magic-sparkles"></i>
-                        Generate Loadstring
+                        Generate Protect
                     </button>
                     <button onclick="clearAll()" class="py-3 px-5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 font-semibold text-xs transition flex items-center justify-center gap-2">
                         <i class="fa-solid fa-trash-can text-red-400"></i>
@@ -77,9 +77,9 @@
                     <div class="flex items-center justify-between mb-4">
                         <div class="flex items-center gap-2">
                             <i class="fa-solid fa-terminal text-purple-400"></i>
-                            <span class="font-semibold text-sm text-white">Executor Output</span>
+                            <span class="font-semibold text-sm text-white">Output Protect</span>
                         </div>
-                        <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Protected 404</span>
+                        <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Protected</span>
                     </div>
                     <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 min-h-[220px] flex flex-col justify-between mb-4">
                         <div id="outputText" class="text-xs font-mono text-slate-400 break-all select-all">Generated loadstring will appear here...</div>
@@ -88,7 +88,7 @@
 
                 <button onclick="copyOutput()" class="w-full py-3.5 px-5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-semibold text-xs transition flex items-center justify-center gap-2">
                     <i class="fa-solid fa-copy" id="copyIcon"></i>
-                    <span id="copyText">Copy Output</span>
+                    <span id="copyText">Copy</span>
                 </button>
             </div>
         </div>
