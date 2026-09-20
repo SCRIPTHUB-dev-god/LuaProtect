@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/protect/(.*)", "destination": "/api/raw.js" },
     { "source": "/api/raw", "destination": "/api/raw.js" }
   ]
 }
