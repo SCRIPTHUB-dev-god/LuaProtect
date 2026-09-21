@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Script Loaders - LuaProtect</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Plus Jakarta Sans', sans-serif; }
+        body {
+            background-color: #080c14;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(168, 85, 247, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.12) 0px, transparent 50%);
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #c084fc 0%, #818cf8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="text-slate-200 flex flex-col justify-between min-h-screen p-4 md:p-8">
+    <header class="w-full max-w-6xl mx-auto mb-8 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <a href="index.html" class="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400 font-bold text-xl hover:bg-purple-600/30 transition">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <div>
+                <h1 class="font-bold text-lg leading-none tracking-wide text-white">SCRIPT<span class="gradient-text">LOADERS</span></h1>
+                <p class="text-xs text-slate-400 mt-1">Direct Raw Loader Generator</p>
+            </div>
+        </div>
+
+        <div id="authHeaderState" class="flex items-center gap-3">
+            <div id="userBadge" class="flex items-center gap-3 bg-slate-900/90 border border-slate-800 rounded-full py-1.5 px-3">
+                <div class="w-6 h-6 rounded-full bg-purple-600/30 border border-purple-500/50 flex items-center justify-center text-[10px] font-bold text-purple-300">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+                <div class="flex flex-col">
+                    <span id="userNameDisplay" class="text-xs font-semibold text-white leading-none">API: User 1</span>
+                    <span id="accountTypeDisplay" class="text-[9px] text-purple-400 font-mono leading-none mt-0.5">User #1</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="w-full max-w-6xl mx-auto flex flex-col gap-8 my-auto">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="lg:col-span-7 flex flex-col gap-4">
+                <div class="glass-card rounded-2xl p-6 flex flex-col h-full">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-sliders text-purple-400"></i>
+                            <span class="font-semibold text-sm text-white">Loader Configuration</span>
+                        </div>
+                        <span class="text-xs text-slate-500" id="charCount">0 chars</span>
+                    </div>
+
+                    <div class="flex flex-col gap-4">
+                        <div>
+                            <label class="text-xs text-slate-400 mb-1.5 block">1. Nama Loader</label>
+                            <input type="text" id="loaderName" placeholder="e.g. MyScriptHub" class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-xs font-mono text-purple-200 placeholder-slate-600 focus:outline-none focus:border-purple-500 transition">
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-slate-400 mb-1.5 block">2. Input Script Lua (Raw Code)</label>
+                            <textarea id="luaInput" placeholder="-- Enter your raw Lua script code here" class="w-full h-72 bg-slate-950/80 border border-slate-800 rounded-xl p-4 text-xs font-mono text-purple-200 placeholder-slate-600 focus:outline-none focus:border-purple-500 transition resize-none"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-3 mt-6">
+                        <button onclick="generateLoader()" class="flex-1 py-3.5 px-5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20">
+                            <i class="fa-solid fa-bolt"></i>
+                            Generate Raw Loader
+                        </button>
+                        <button onclick="clearAll()" class="py-3.5 px-5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 font-semibold text-xs transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-trash-can text-red-400"></i>
+                            Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-5 flex flex-col gap-6">
+                <div class="glass-card rounded-2xl p-6 flex flex-col h-full justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-terminal text-indigo-400"></i>
+                                <span class="font-semibold text-sm text-white">Generated Raw Loadstring</span>
+                            </div>
+                            <span class="text-xs px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">Ready</span>
+                        </div>
+                        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 min-h-[220px] flex flex-col justify-between mb-4">
+                            <div id="outputText" class="text-xs font-mono text-slate-400 break-all select-all">Generated loader code will appear here...</div>
+                        </div>
+                    </div>
+
+                    <button onclick="copyOutput()" class="w-full py-3.5 px-5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 font-semibold text-xs transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-copy" id="copyIcon"></i>
+                        <span id="copyText">Copy Loadstring</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-full">
+            <div class="glass-card rounded-2xl p-6 border-purple-500/20">
+                <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-sm">
+                            <i class="fa-solid fa-box-archive"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-base text-white">Saved Loaders</h2>
+                            <p class="text-xs text-slate-400">History of your generated script loader snippets</p>
+                        </div>
+                    </div>
+                    <span id="savedCount" class="text-xs font-mono px-2.5 py-1 rounded-full bg-slate-800 text-purple-300 border border-slate-700">0 Items</span>
+                </div>
+
+                <div id="savedContainer" class="flex flex-col gap-4">
+                    <div id="emptyState" class="text-center py-8 text-xs text-slate-500 font-mono">
+                        No saved loaders yet. Create one above!
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="w-full max-w-6xl mx-auto mt-8 text-center text-xs text-slate-600">
+        Lua Protect &copy; 2026 Script Loader System
+    </footer>
+
+    <script>
+        const loaderName = document.getElementById('loaderName');
+        const luaInput = document.getElementById('luaInput');
+        const charCount = document.getElementById('charCount');
+        const outputText = document.getElementById('outputText');
+        const savedContainer = document.getElementById('savedContainer');
+        const emptyState = document.getElementById('emptyState');
+        const savedCount = document.getElementById('savedCount');
+        
+        let currentUser = null;
+        let generatedResult = "";
+        let savedLoaders = JSON.parse(localStorage.getItem('lua_saved_loaders') || '[]');
+
+        function stringToHex(str) {
+            const encoder = new TextEncoder();
+            const bytes = encoder.encode(str);
+            return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        const disabledHex = stringToHex("warn('LuaProtect: Script is UNPUBLIC / DISABLED')");
+
+        function checkSession() {
+            const session = localStorage.getItem('lua_user_session');
+            if (!session) {
+                alert("Please complete Cloudflare verification on the Dashboard first!");
+                window.location.href = "index.html";
+                return;
+            }
+            try {
+                currentUser = JSON.parse(session);
+                document.getElementById('userNameDisplay').innerText = currentUser.name;
+                document.getElementById('accountTypeDisplay').innerText = `User #${currentUser.num}`;
+            } catch(e) {
+                window.location.href = "index.html";
+            }
+        }
+
+        luaInput.addEventListener('input', () => {
+            charCount.innerText = `${luaInput.value.length} chars`;
+        });
+
+        function slugify(text) {
+            return text.toString().toLowerCase().trim()
+                .replace(/\s+/g, '-')
+                .replace(/[^\w\-]+/g, '')
+                .replace(/\-\-+/g, '-');
+        }
+
+        function generateLoader() {
+            const name = loaderName.value.trim();
+            const code = luaInput.value.trim();
+
+            if (!name) {
+                alert("Please enter a Loader Name first!");
+                return;
+            }
+
+            if (!code) {
+                alert("Please enter your Lua script code!");
+                return;
+            }
+
+            const cleanName = slugify(name);
+            const cleanUser = currentUser ? currentUser.username : 'api-user-1';
+            const hexPayload = stringToHex(code);
+
+            const rawUrl = `https://lua-protect.vercel.app/v1/${cleanUser}/${cleanName}/${hexPayload}`;
+            generatedResult = `loadstring(game:HttpGet("${rawUrl}"))()`;
+
+            outputText.innerText = generatedResult;
+            outputText.classList.remove('text-slate-400');
+            outputText.classList.add('text-purple-300');
+
+            const newItem = {
+                id: Date.now().toString(),
+                user: currentUser ? currentUser.name : 'API: User 1',
+                cleanUser: cleanUser,
+                loaderName: name,
+                cleanName: cleanName,
+                rawHex: hexPayload,
+                url: rawUrl,
+                script: generatedResult,
+                status: 'public',
+                createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+
+            savedLoaders.unshift(newItem);
+            saveToStorage();
+            renderSavedItems();
+        }
+
+        function saveToStorage() {
+            localStorage.setItem('lua_saved_loaders', JSON.stringify(savedLoaders));
+        }
+
+        function toggleStatus(id) {
+            const item = savedLoaders.find(i => i.id === id);
+            if (item) {
+                item.status = item.status === 'public' ? 'unpublic' : 'public';
+                if (item.status === 'unpublic') {
+                    const disabledUrl = `https://lua-protect.vercel.app/v1/${item.cleanUser}/${item.cleanName}/${disabledHex}`;
+                    item.script = `loadstring(game:HttpGet("${disabledUrl}"))()`;
+                } else {
+                    const activeUrl = `https://lua-protect.vercel.app/v1/${item.cleanUser}/${item.cleanName}/${item.rawHex}`;
+                    item.script = `loadstring(game:HttpGet("${activeUrl}"))()`;
+                }
+                saveToStorage();
+                renderSavedItems();
+            }
+        }
+
+        function deleteSaved(id) {
+            savedLoaders = savedLoaders.filter(i => i.id !== id);
+            saveToStorage();
+            renderSavedItems();
+        }
+
+        function copySavedText(id) {
+            const item = savedLoaders.find(i => i.id === id);
+            if (!item) return;
+
+            navigator.clipboard.writeText(item.script).then(() => {
+                alert("Loadstring copied to clipboard!");
+            });
+        }
+
+        function renderSavedItems() {
+            savedCount.innerText = `${savedLoaders.length} Items`;
+            
+            if (savedLoaders.length === 0) {
+                savedContainer.innerHTML = '';
+                savedContainer.appendChild(emptyState);
+                return;
+            }
+
+            savedContainer.innerHTML = '';
+
+            savedLoaders.forEach(item => {
+                const isPublic = item.status === 'public';
+                const card = document.createElement('div');
+                card.className = "bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col gap-3 overflow-hidden";
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between text-xs">
+                        <div class="flex items-center gap-2">
+                            <span class="font-semibold text-purple-400">${item.loaderName}</span>
+                            <span class="text-slate-600">•</span>
+                            <span class="text-slate-500">${item.user}</span>
+                            <span class="text-slate-600">•</span>
+                            <span class="text-slate-500">${item.createdAt}</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                            isPublic 
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                            : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                        }">
+                            ${isPublic ? 'PUBLIC (ACTIVE)' : 'UNPUBLIC (DISABLED)'}
+                        </span>
+                    </div>
+
+                    <div class="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 overflow-x-auto no-scrollbar">
+                        <pre class="text-xs font-mono text-slate-300 whitespace-nowrap">${item.script}</pre>
+                    </div>
+
+                    <div class="flex items-center gap-2 pt-1 overflow-x-auto no-scrollbar flex-nowrap w-full">
+                        <button onclick="copySavedText('${item.id}')" class="shrink-0 py-2 px-3 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 font-semibold text-xs transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-copy"></i> Copy Loadstring
+                        </button>
+                        <button onclick="toggleStatus('${item.id}')" class="shrink-0 py-2 px-3 rounded-lg ${
+                            isPublic 
+                            ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/30' 
+                            : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/30'
+                        } border font-semibold text-xs transition flex items-center gap-1.5">
+                            <i class="fa-solid ${isPublic ? 'fa-eye-slash' : 'fa-eye'}"></i>
+                            ${isPublic ? 'Unpublic' : 'Public'}
+                        </button>
+                        <button onclick="deleteSaved('${item.id}')" class="shrink-0 py-2 px-3 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 font-semibold text-xs transition flex items-center gap-1.5 ml-auto">
+                            <i class="fa-solid fa-trash-can"></i> Delete
+                        </button>
+                    </div>
+                `;
+
+                savedContainer.appendChild(card);
+            });
+        }
+
+        function clearAll() {
+            loaderName.value = "";
+            luaInput.value = "";
+            outputText.innerText = "Generated loader code will appear here...";
+            outputText.classList.remove('text-purple-300');
+            outputText.classList.add('text-slate-400');
+            charCount.innerText = "0 chars";
+            generatedResult = "";
+        }
+
+        function copyOutput() {
+            if (!generatedResult) {
+                alert("Nothing to copy yet!");
+                return;
+            }
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(generatedResult)
+                    .then(() => showCopySuccess())
+                    .catch(() => fallbackCopy());
+            } else {
+                fallbackCopy();
+            }
+        }
+
+        function fallbackCopy() {
+            const temp = document.createElement('textarea');
+            temp.value = generatedResult;
+            temp.style.position = 'fixed';
+            temp.style.opacity = '0';
+            document.body.appendChild(temp);
+            temp.focus();
+            temp.select();
+            try {
+                document.execCommand('copy');
+                showCopySuccess();
+            } catch (err) {
+                alert("Failed to copy automatically.");
+            }
+            document.body.removeChild(temp);
+        }
+
+        function showCopySuccess() {
+            const copyText = document.getElementById('copyText');
+            const copyIcon = document.getElementById('copyIcon');
+            copyText.innerText = "Copied!";
+            copyIcon.className = "fa-solid fa-check text-emerald-400";
+            setTimeout(() => {
+                copyText.innerText = "Copy Loadstring";
+                copyIcon.className = "fa-solid fa-copy";
+            }, 2000);
+        }
+
+        checkSession();
+        renderSavedItems();
+    </script>
+</body>
+</html>
