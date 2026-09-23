@@ -151,7 +151,7 @@
             return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
         }
 
-        const disabledHex = stringToHex("warn('LuaProtect: Script is UNPUBLIC / DISABLED')");
+        const disabledHex = "0000000000";
 
         function generateLink() {
             const code = luaInput.value.trim();
@@ -238,7 +238,7 @@
                 card.innerHTML = `
                     <div class="flex items-center justify-between text-xs">
                         <div class="flex items-center gap-2">
-                            <span class="font-mono text-indigo-400 font-bold">HEX (10-25): ${item.dataId}</span>
+                            <span class="font-mono text-indigo-400 font-bold">HEX: ${item.dataId}...</span>
                             <span class="text-slate-600">•</span>
                             <span class="text-slate-500">${item.createdAt}</span>
                         </div>
@@ -323,7 +323,7 @@
             copyText.innerText = "Copied!";
             copyIcon.className = "fa-solid fa-check text-emerald-400";
             setTimeout(() => {
-                copyText.innerText = "Copy Output";
+                copyText.innerText = "Copy";
                 copyIcon.className = "fa-solid fa-copy";
             }, 2000);
         }
