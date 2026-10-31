@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/vault-style.css",
+      "destination": "/vault-style.css"
+    }
+  ]
+}
