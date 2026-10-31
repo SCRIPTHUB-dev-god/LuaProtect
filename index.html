@@ -24,13 +24,20 @@
 </style>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LUAU-PRO</title>
+<title>LUAU-PRO • VAULTH</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="stars"></div>
+<div class="stars2"></div>
+<div class="glow"></div>
+
 <header>
+<div class="logo-wrap">
+<div class="dot"></div>
 <div class="logo">LUAU-PRO</div>
+<div class="ver">v2.1</div>
+</div>
 <div class="hamburger" id="hamburger"><span></span><span></span><span></span></div>
 <div class="dropdown" id="dropdown">
 <div data-tab="home">HOME</div>
@@ -38,47 +45,118 @@
 <div data-tab="vault">VAULT</div>
 </div>
 </header>
+
 <main>
-<div id="home" class="section">
+<section id="home" class="section">
 <div class="hero">
-<h1>VAULTH<br>SYSTEM</h1>
-<p>luau-pro.vercel.app</p>
-<button class="btn" id="openVaultBtn">OPEN VAULTH</button>
+<div class="hero-badge">BLACK • WHITE • SPACE</div>
+<h1>VAULTH<br><span>SYSTEM</span></h1>
+<p>luau-pro.vercel.app /api/raw?id=vx_....lua</p>
+<div class="hero-actions">
+<button class="btn primary" id="openVaultBtn">OPEN VAULTH</button>
+<button class="btn ghost">DOCS</button>
+</div>
+<div class="orbit">
+<div class="orbit-ring"></div>
+<div class="orbit-ring r2"></div>
+<div class="orbit-dot"></div>
 </div>
 </div>
-<div id="dashboard" class="section" style="display:none">
+</section>
+
+<section id="dashboard" class="section" style="display:none">
+<div class="sec-head">
+<h2>DASHBOARD</h2>
+<div class="live"><div class="live-dot"></div>LIVE</div>
+</div>
 <div class="grid">
-<div class="card"><div class="num">24</div><div class="label">TOTAL VAULTHS</div></div>
-<div class="card"><div class="num">18</div><div class="label">ACTIVE</div></div>
-<div class="card"><div class="num">PROXY ON</div><div class="label">SECURE</div></div>
+<div class="card">
+<div class="card-top"><span>TOTAL</span><span class="k">●</span></div>
+<div class="num">24</div>
+<div class="label">VAULTHS CREATED</div>
+</div>
+<div class="card">
+<div class="card-top"><span>ACTIVE</span><span class="k">●</span></div>
+<div class="num">18</div>
+<div class="label">PROXY SECURED</div>
+</div>
+<div class="card active-card">
+<div class="card-top"><span>STATUS</span><span class="k">●</span></div>
+<div class="num">PROXY ON</div>
+<div class="label">IP GUARD BY ENV</div>
+</div>
 </div>
 <div class="box">
-<div class="list">vx_a3f9c2d1e8b4.lua - active - proxy</div>
-<div class="list">vx_7e2d9a1c4f8b2a.lua - active - secure</div>
+<div class="box-head">RECENT VAULTHS <span>2</span></div>
+<div class="list">vx_a3f9c2d1e8b4.lua <b>active</b> • proxy</div>
+<div class="list">vx_7e2d9a1c4f8b2a.lua <b>active</b> • secured</div>
+</div>
+</section>
+
+<section id="vault" class="section" style="display:none">
+<div class="sec-head">
+<h2>VAULT</h2>
+<div class="status-wrap">
+<div id="changeStatus" class="change unchanged">NO CHANGE</div>
+<div id="runStatus" class="change run">IDLE</div>
 </div>
 </div>
-<div id="vault" class="section" style="display:none">
-<textarea id="luaInput" placeholder="-- your lua here">print("hello vaulth")</textarea>
-<button class="btn" id="generateBtn">GENERATE VAULTH</button>
+
+<div class="vault-layout">
+<div class="editor-wrap">
+<div class="editor-head">
+<div class="editor-title">LUA INPUT</div>
+<div class="editor-actions">
+<button class="mini-btn" id="clearBtn">CLEAR</button>
+<button class="mini-btn" id="formatBtn">FORMAT</button>
+</div>
+</div>
+<textarea id="luaInput" spellcheck="false">print("hello vaulth")</textarea>
+<div class="editor-foot">
+<span id="charCount">0 chars</span>
+<span id="lineCount">1 line</span>
+</div>
+</div>
+
+<div class="controls">
+<button class="btn primary full" id="generateBtn">GENERATE VAULTH</button>
+<div class="control-row">
+<button class="btn ghost full" id="runBtn">RUN VAULT</button>
+<button class="btn ghost full" id="testBtn">TEST RAW</button>
+</div>
+</div>
+
 <div class="vault-card" id="vaultCard" style="display:none">
 <div class="vault-header">
 <div class="vault-id" id="vaultIdText">vx_...</div>
-<div class="vault-badge">LAYER A + LAYER B PROTECTED</div>
+<div class="vault-badge">PROXY SECURED</div>
 </div>
 <div class="vault-url" id="vaultUrl">https://luau-pro.vercel.app/api/raw?id=vx_...</div>
-<div class="proxy-status">PROXY ACTIVE - IP GUARD BY ENV - NO DIRECT ACCESS</div>
+<div class="proxy-status">PROXY ACTIVE • IP GUARD BY ENV • NO DIRECT ACCESS</div>
+
 <div class="luarmor-card">
 <div class="luarmor-top">
 <div class="luarmor-title">VAULTH LINK</div>
+<div class="luarmor-actions">
+<span id="copyStatus" class="copy-status"></span>
 <button class="copy-small" id="copyLoadstring">COPY</button>
 </div>
+</div>
 <pre class="code-block no-select" id="codeBlock"></pre>
-<div class="anti-logger">READ GUARD ACTIVE</div>
+<div class="anti-logger">READ GUARD • COPY ONLY VIA BUTTON</div>
 </div>
-<div class="protect-info">LAYER A - LAYER B - READ GUARD - PROXY SECURED</div>
+
+<div class="run-output" id="runOutput" style="display:none">
+<div class="run-head">RUN OUTPUT <span id="runTime"></span></div>
+<pre id="runContent"></pre>
+</div>
+
+<div class="protect-info">LAYER A • LAYER B • READ GUARD • PROXY</div>
 </div>
 </div>
+</section>
 </main>
+
 <script src="script.js"></script>
 <script>(function(){var loc=location.href.replace(/#.*$/,"");var ATTR_NAMES=["data-product-id","data-productid","data-product_id","product-id","productid","product_id","data-source-entity-id","source-entity-id","source_entity_id","data-product","data-metadata","data-meta"];var DATASET_KEYS=["productId","productid","product_id","sourceEntityId","sourceentityid","source_entity_id","product","metadata","meta"];function readProductId(value){if(typeof value!=="string"||value.length===0)return null;if(/^[0-9]{6,}$/.test(value))return value;var match=value.match(/(?:product(?:_|-)?id|source(?:_|-)?entity(?:_|-)?id)["'=:\s]+([0-9]{6,})/i);return match?match[1]:null}function extractProductId(start){for(var node=start;node&&node!==document.body;node=node.parentElement){for(var i=0;i<ATTR_NAMES.length;i++){var attrValue=node.getAttribute&&node.getAttribute(ATTR_NAMES[i]);var attrProductId=readProductId(attrValue);if(attrProductId)return attrProductId}var dataset=node.dataset||null;if(dataset){for(var j=0;j<DATASET_KEYS.length;j++){var dataValue=dataset[DATASET_KEYS[j]];var dataProductId=readProductId(dataValue);if(dataProductId)return dataProductId}}}return null}function isInlineMediaSlotElement(node){return !!(node&&node.getAttribute&&node.getAttribute("data-clippy-inline-media-slot")!==null)}function findInlineMediaSlot(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(isInlineMediaSlotElement(node))return node}return null}function readInlineMediaUrl(node){if(!node)return null;return node.getAttribute&&((node.getAttribute("data-clippy-inline-media-url")||node.getAttribute("data-url")||node.getAttribute("data_url")))||node.href||null}function stripHash(url){return String(url).replace(/#.*$/,"")}function urlsMatch(a,b){if(!a||!b)return false;try{return stripHash(new URL(a,loc).href)===stripHash(new URL(b,loc).href)}catch(_){return stripHash(a)===stripHash(b)}}function isFirstPartyReelUrl(value){try{var url=new URL(value,loc);if(url.protocol!=="https:")return false;var host=url.hostname.toLowerCase();var supported=host==="instagram.com"||host.endsWith(".instagram.com")||host==="facebook.com"||host.endsWith(".facebook.com");return supported&&/\/reels?\//i.test(url.pathname)}catch(_){return false}}function isInlineMediaUrlClick(node,href){var slot=findInlineMediaSlot(node);if(!slot)return false;var slotUrl=readInlineMediaUrl(slot);if(slotUrl)return urlsMatch(href,slotUrl);return isFirstPartyReelUrl(href)}function findDataHref(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(node.getAttribute){var href=node.getAttribute("data-href")||node.getAttribute("data-url");if(href)return{href:href,node:node}}}return null}var nativeOpen=window.open;window.open=function(url){if(parent!==window&&typeof url==="string"&&/^https?:\/\//.test(url)){parent.postMessage({type:"ecto:usercontent-link-click",href:url},"*");return null}return nativeOpen?nativeOpen.apply(window,arguments):null};document.addEventListener("click",function(e){var target=e.target instanceof Element?e.target:null;if(!target)return;if(parent===window)return;var a=target.closest?target.closest("a[href]"):null;if(a&&a.href&&/^https?:\/\//.test(a.href)&&a.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(a,a.href))return;var productId=extractProductId(target)||extractProductId(a);if(productId){e.preventDefault();parent.postMessage({type:"ecto-artifact-link-click",productId:productId},"*");return}e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:a.href},"*");return}var dataHref=findDataHref(target);if(dataHref&&/^https?:\/\//.test(dataHref.href)&&dataHref.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(dataHref.node,dataHref.href))return;e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:dataHref.href},"*")}},true)})();</script><script>(function(){var FOCUS_TYPE="ecto:artifact-focus-request";var CLOSE_TYPE="ecto:artifact-close-request";function focusArtifactDocument(){var body=document.body;if(!body)return;try{window.focus();}catch(e){}if(!body.hasAttribute("tabindex"))body.setAttribute("tabindex","-1");try{body.focus({preventScroll:true});}catch(e){try{body.focus();}catch(e2){}}}window.addEventListener("message",function(event){if(event.source!==window.parent)return;var data=event.data;if(!data||typeof data!=="object"||data.type!==FOCUS_TYPE)return;if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",focusArtifactDocument,{once:true});return;}focusArtifactDocument();});window.addEventListener("keydown",function(event){if(event.key!=="Escape")return;window.setTimeout(function(){if(event.defaultPrevented)return;window.parent.postMessage({type:CLOSE_TYPE},"*");},0);});})();</script></body>
 </html>
