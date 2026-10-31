@@ -47,29 +47,37 @@ const copyBtn = document.getElementById('copyLoadstring');
 
 let currentId = '';
 let currentUrl = '';
+let currentLoadstring = '';
 
 function generateVaulth() {
   const hex = generateHexId();
   currentId = `vx_${hex}.lua`;
-  currentUrl = `https://lua-protect.vercel.app/api/raw?id=vx_${hex}`;
-
+  currentUrl = `https://luau-pro.vercel.app/api/raw?id=vx_${hex}.lua`;
   vaultIdText.textContent = currentId;
   vaultUrl.textContent = currentUrl;
-
-  const protectedCode = `loadstring(game:HttpGet("${currentUrl}"))()`;
-
-  codeBlock.textContent = protectedCode;
+  currentLoadstring = `loadstring(game:HttpGet("${currentUrl}"))()`;
+  codeBlock.textContent = currentLoadstring;
   vaultCard.style.display = 'block';
 }
 
 generateBtn.addEventListener('click', generateVaulth);
 
 copyBtn.addEventListener('click', () => {
-  navigator.clipboard.writeText(codeBlock.textContent);
+  navigator.clipboard.writeText(currentLoadstring);
   copyBtn.textContent = 'COPIED';
   setTimeout(() => {
     copyBtn.textContent = 'COPY';
   }, 1500);
+});
+
+codeBlock.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  return false;
+});
+
+codeBlock.addEventListener('selectstart', (e) => {
+  e.preventDefault();
+  return false;
 });
 
 switchTab('home');
