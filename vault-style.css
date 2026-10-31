@@ -1,0 +1,25 @@
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;color:#fff;font-family:ui-monospace,monospace;min-height:100vh}
+.stars{position:fixed;inset:0;background-image:radial-gradient(white 1px,transparent 1px);background-size:90px 90px;opacity:0.04;pointer-events:none}
+header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #222;background:#000;position:sticky;top:0;z-index:10}
+.logo{font-weight:900;letter-spacing:0.2em;font-size:13px}
+.badge{font-size:8px;background:#fff;color:#000;padding:4px 10px;letter-spacing:0.15em}
+main{max-width:800px;margin:0 auto;padding:30px 20px 80px;position:relative;z-index:1}
+.vault-view-card{border:1px solid #333;background:#0a0a0a}
+.view-header{padding:16px 20px;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.view-id{font-size:14px;letter-spacing:0.1em}
+.view-status{font-size:8px;color:#666;letter-spacing:0.15em}
+.view-info{padding:16px 20px;background:#000;border-bottom:1px solid #222}
+.info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #111;font-size:11px}
+.info-row:last-child{border-bottom:0}
+.info-row span:first-child{color:#555;letter-spacing:0.1em}
+.info-row span:last-child{color:#aaa}
+.code-section{border-bottom:1px solid #222}
+.code-header{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid #222;background:#050505}
+.code-title{font-size:10px;letter-spacing:0.2em;color:#888}
+.copy-btn{border:1px solid #333;background:#000;color:#fff;padding:6px 12px;font-size:10px;cursor:pointer;letter-spacing:0.1em}
+.copy-btn:hover{background:#fff;color:#000}
+.code-content{padding:20px;font-size:12px;line-height:1.7;color:#ccc;white-space:pre-wrap;min-height:120px;background:#000}
+.loadstring-section{padding:16px 20px;background:#050505}
+.ls-title{font-size:9px;color:#555;letter-spacing:0.2em;margin-bottom:10px}
+.ls-code{font-size:11px;color:#888;background:#000;border:1px solid #222;padding:12px;white-space:pre-wrap;word-break:break-all}
