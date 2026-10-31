@@ -53,11 +53,18 @@ function generateVaulth() {
   const hex = generateHexId();
   currentId = `vx_${hex}.lua`;
   currentUrl = `https://luau-pro.vercel.app/api/raw?id=vx_${hex}.lua`;
+  const userLua = luaInput.value.trim();
+  
   vaultIdText.textContent = currentId;
   vaultUrl.textContent = currentUrl;
+  
   currentLoadstring = `loadstring(game:HttpGet("${currentUrl}"))()`;
+  
   codeBlock.textContent = currentLoadstring;
   vaultCard.style.display = 'block';
+
+  localStorage.setItem(currentId, userLua);
+  localStorage.setItem(currentId + '_url', currentUrl);
 }
 
 generateBtn.addEventListener('click', generateVaulth);
