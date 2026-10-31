@@ -1,25 +1,26 @@
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#000;color:#fff;font-family:ui-monospace,monospace;min-height:100vh}
-.stars{position:fixed;inset:0;background-image:radial-gradient(white 1px,transparent 1px);background-size:90px 90px;opacity:0.04;pointer-events:none}
-header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #222;background:#000;position:sticky;top:0;z-index:10}
-.logo{font-weight:900;letter-spacing:0.2em;font-size:13px}
-.badge{font-size:8px;background:#fff;color:#000;padding:4px 10px;letter-spacing:0.15em}
-main{max-width:800px;margin:0 auto;padding:30px 20px 80px;position:relative;z-index:1}
-.vault-view-card{border:1px solid #333;background:#0a0a0a}
-.view-header{padding:16px 20px;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
-.view-id{font-size:14px;letter-spacing:0.1em}
-.view-status{font-size:8px;color:#666;letter-spacing:0.15em}
-.view-info{padding:16px 20px;background:#000;border-bottom:1px solid #222}
-.info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #111;font-size:11px}
+:root{--bg:#050507;--line:#1a1a22;--line2:#2a2a35;--muted:#7a7a88}
+body{background:var(--bg);color:#fff;font-family:ui-monospace,monospace;min-height:100vh}
+.stars{position:fixed;inset:0;background-image:radial-gradient(rgba(255,255,255,0.7) 1px,transparent 1px);background-size:90px 90px;opacity:0.05;pointer-events:none}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);background:rgba(0,0,0,0.9);position:sticky;top:0;z-index:10;backdrop-filter:blur(10px)}
+.logo{font-weight:900;letter-spacing:0.25em;font-size:12px}
+.badge{font-size:8px;background:#fff;color:#000;padding:4px 10px;letter-spacing:0.15em;font-weight:700}
+main{max-width:820px;margin:0 auto;padding:28px 20px 80px;position:relative;z-index:1}
+.vault-view-card{border:1px solid var(--line2);background:linear-gradient(180deg,#0a0a0f,#050507);box-shadow:0 24px 80px rgba(0,0,0,0.7)}
+.view-header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;background:rgba(255,255,255,0.01)}
+.view-id{font-size:13px;letter-spacing:0.1em;font-weight:700}
+.view-status{font-size:8px;color:#666;letter-spacing:0.18em;border:1px solid var(--line);padding:4px 8px;background:#000}
+.view-info{padding:16px 20px;background:#000;border-bottom:1px solid var(--line)}
+.info-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #111;font-size:11px}
 .info-row:last-child{border-bottom:0}
-.info-row span:first-child{color:#555;letter-spacing:0.1em}
+.info-row span:first-child{color:#555;letter-spacing:0.12em;font-size:9px}
 .info-row span:last-child{color:#aaa}
-.code-section{border-bottom:1px solid #222}
-.code-header{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid #222;background:#050505}
-.code-title{font-size:10px;letter-spacing:0.2em;color:#888}
-.copy-btn{border:1px solid #333;background:#000;color:#fff;padding:6px 12px;font-size:10px;cursor:pointer;letter-spacing:0.1em}
+.code-section{border-bottom:1px solid var(--line)}
+.code-header{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--line);background:rgba(255,255,255,0.015)}
+.code-title{font-size:9px;letter-spacing:0.22em;color:#888}
+.copy-btn{border:1px solid var(--line2);background:#000;color:#fff;padding:6px 12px;font-size:9px;cursor:pointer;letter-spacing:0.12em}
 .copy-btn:hover{background:#fff;color:#000}
-.code-content{padding:20px;font-size:12px;line-height:1.7;color:#ccc;white-space:pre-wrap;min-height:120px;background:#000}
-.loadstring-section{padding:16px 20px;background:#050505}
-.ls-title{font-size:9px;color:#555;letter-spacing:0.2em;margin-bottom:10px}
-.ls-code{font-size:11px;color:#888;background:#000;border:1px solid #222;padding:12px;white-space:pre-wrap;word-break:break-all}
+.code-content{padding:20px;font-size:12.5px;line-height:1.7;color:#d0d0d2;white-space:pre-wrap;min-height:120px;background:#000}
+.loadstring-section{padding:16px 20px;background:#050507}
+.ls-title{font-size:8px;color:#555;letter-spacing:0.22em;margin-bottom:10px}
+.ls-code{font-size:11px;color:#888;background:#000;border:1px solid var(--line);padding:12px;white-space:pre-wrap;word-break:break-all}
