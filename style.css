@@ -1,0 +1,40 @@
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;color:#fff;font-family:ui-monospace,SFMono-Regular,monospace;min-height:100vh}
+.stars{position:fixed;inset:0;background-image:radial-gradient(white 1px,transparent 1px);background-size:80px 80px;opacity:0.06;pointer-events:none}
+header{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #222;background:rgba(0,0,0,0.95)}
+.logo{font-weight:900;letter-spacing:0.2em;font-size:14px}
+.hamburger{width:26px;height:18px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer}
+.hamburger span{display:block;height:2px;background:#fff;width:100%}
+.dropdown{position:absolute;right:20px;top:60px;background:#000;border:1px solid #333;min-width:160px;display:none;z-index:30}
+.dropdown.open{display:block}
+.dropdown div{padding:12px 16px;font-size:11px;letter-spacing:0.15em;cursor:pointer;border-bottom:1px solid #222}
+.dropdown div:hover{background:#fff;color:#000}
+main{max-width:900px;margin:0 auto;padding:40px 20px 80px;position:relative;z-index:1}
+.section{display:block}
+.hero{text-align:center;padding:100px 0}
+.hero h1{font-size:56px;font-weight:900;letter-spacing:0.3em;line-height:0.9}
+.hero p{margin-top:20px;color:#888;letter-spacing:0.2em;font-size:11px}
+.btn{border:1px solid #fff;background:#fff;color:#000;padding:12px 28px;font-family:inherit;font-size:11px;letter-spacing:0.2em;cursor:pointer;margin-top:20px}
+.btn:hover{background:#000;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px}
+.card{border:1px solid #333;padding:24px}
+.num{font-size:28px;font-weight:700}
+.label{font-size:10px;color:#888;margin-top:8px;letter-spacing:0.15em}
+.box{border:1px solid #222;margin-top:20px;background:#0a0a0a}
+.list{padding:12px 16px;border-bottom:1px solid #222;font-size:11px;color:#888}
+.list:last-child{border-bottom:0}
+textarea{width:100%;background:#000;color:#fff;border:1px solid #333;padding:14px;font-family:inherit;font-size:12px;min-height:130px;resize:vertical}
+textarea:focus{outline:none;border-color:#fff}
+.vault-card{margin-top:24px;border:1px solid #333;background:#0a0a0a}
+.vault-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #222}
+.vault-id{font-size:12px;letter-spacing:0.1em}
+.vault-badge{font-size:9px;background:#fff;color:#000;padding:4px 8px;letter-spacing:0.1em}
+.vault-url{padding:12px 16px;font-size:11px;color:#666;word-break:break-all;border-bottom:1px solid #222;background:#000}
+.luarmor-card{margin:16px;background:#000;border:1px solid #222}
+.luarmor-top{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #222}
+.luarmor-title{font-size:10px;letter-spacing:0.2em;color:#888}
+.copy-small{border:1px solid #333;background:#000;color:#fff;padding:6px 12px;font-family:inherit;font-size:10px;cursor:pointer;letter-spacing:0.1em}
+.copy-small:hover{background:#fff;color:#000}
+.code-block{padding:14px;font-size:11px;line-height:1.6;color:#ccc;overflow:auto;white-space:pre-wrap}
+.protect-info{padding:10px 16px;font-size:9px;color:#555;letter-spacing:0.15em;text-align:center;border-top:1px solid #222}
+@media(max-width:600px){.grid{grid-template-columns:1fr}.hero h1{font-size:36px}}
