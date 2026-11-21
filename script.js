@@ -1,550 +1,231 @@
-const B91_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_-{|}~" + String.fromCharCode(39);
-const B91_MAP = {};
-for (let _i = 0; _i < B91_CHARS.length; _i++) {
-  B91_MAP[B91_CHARS[_i]] = _i;
+
+"use strict";
+
+const CONFIG = {
+  wrapInDo: true,
+  encodeStrings: true,
+  customPrint: true,
+  rot47: true
+};
+
+function randomName(source, prefix) {
+  let name;
+  do {
+    name = prefix + Math.random().toString(36).slice(2, 9);
+  } while (source.includes(name));
+  return name;
 }
-function base91Encode(data) {
-  const bytes = new TextEncoder().encode(data);
-  let b = 0;
-  let n = 0;
-  let out = "";
-  for (const byte of bytes) {
-    b = b | (byte << n);
-    n = n + 8;
-    if (n > 13) {
-      let v = b & 8191;
-      if (v > 88) {
-        b = b >> 13;
-        n = n - 13;
-      } else {
-        v = b & 16383;
-        b = b >> 14;
-        n = n - 14;
-      }
-      out = out + B91_CHARS[v % 91];
-      out = out + B91_CHARS[Math.floor(v / 91)];
-    }
-  }
-  if (n > 0) {
-    out = out + B91_CHARS[b % 91];
-    if (n > 7 || b > 90) {
-      out = out + B91_CHARS[Math.floor(b / 91)];
-    }
-  }
-  return out;
+
+function byteLength(text) {
+  return new TextEncoder().encode(text).length;
 }
-function base91Decode(text) {
-  let v = -1;
-  let b = 0;
-  let n = 0;
-  const out = [];
-  for (const ch of text) {
-    if (!(ch in B91_MAP)) {
-      continue;
-    }
-    const p = B91_MAP[ch];
-    if (v < 0) {
-      v = p;
-    } else {
-      v = v + p * 91;
-      b = b | (v << n);
-      if ((v & 8191) > 88) {
-        n = n + 13;
-      } else {
-        n = n + 14;
-      }
-      while (n >= 8) {
-        out.push(b & 255);
-        b = b >> 8;
-        n = n - 8;
-      }
-      v = -1;
-    }
-  }
-  if (v >= 0) {
-    out.push((b | (v << n)) & 255);
-  }
-  return new TextDecoder().decode(new Uint8Array(out));
-}
+
 function rot47(text) {
-  let res = "";
-  for (let i = 0; i < text.length; i++) {
-    let c = text.charCodeAt(i);
-    if (c >= 33 && c <= 126) {
-      c = 33 + ((c + 14) % 94);
-    }
-    res += String.fromCharCode(c);
-  }
-  return res;
-}
-function xorEncrypt(text, key) {
   let result = "";
   for (let i = 0; i < text.length; i++) {
-    const charCode = text.charCodeAt(i) ^ key.charCodeAt(i % key.length);
-    result += String.fromCharCode(charCode);
+    const code = text.charCodeAt(i);
+    if (code >= 33 && code <= 126) {
+      result += String.fromCharCode(((code - 33 + 47) % 94) + 33);
+    } else {
+      result += text[i];
+    }
   }
   return result;
 }
-function generateRandomKey() {
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let key = "";
-  for (let i = 0; i < 6; i++) {
-    key += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return key;
-}
-const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-const KEYWORDS = ["and", "break", "do", "else", "elseif", "end", "false", "for", "function", "goto", "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while", "print"];
-function randomThree(used) {
-  while (true) {
-    let name = "";
-    for (let k = 0; k < 3; k++) {
-      name = name + LETTERS.charAt(Math.floor(Math.random() * LETTERS.length));
-    }
-    if (!(name in used) && KEYWORDS.indexOf(name) < 0) {
-      used[name] = true;
-      return name;
-    }
-  }
-}
-function isNameChar(ch) {
-  return (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9") || ch === "_";
-}
-function isNameStart(ch) {
-  return (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || ch === "_";
-}
-function parseParams(code, i, map, used, out) {
-  out.push("(");
-  i = i + 1;
-  while (i < code.length && code[i] !== ")") {
-    if (isNameStart(code[i])) {
-      const start = i;
-      while (i < code.length && isNameChar(code[i])) {
-        i = i + 1;
-      }
-      const name = code.slice(start, i);
-      if (!(name in map)) {
-        map[name] = randomThree(used);
-      }
-      out.push(map[name]);
-    } else {
-      out.push(code[i]);
-      i = i + 1;
-    }
-  }
-  if (i < code.length && code[i] === ")") {
-    out.push(")");
-    i = i + 1;
-  }
-  return i;
-}
-function renameVars(code) {
-  const map = {};
-  const used = {};
-  const out = [];
+
+function transformSource(source, decoderName, printName) {
+  let output = "";
   let i = 0;
-  function copySpaces() {
-    while (i < code.length && (code[i] === " " || code[i] === String.fromCharCode(9) || code[i] === String.fromCharCode(10) || code[i] === String.fromCharCode(13))) {
-      out.push(code[i]);
-      i = i + 1;
-    }
+  let previousWord = "";
+  let previousChar = "";
+
+  function readLongBracket(position) {
+    if (source[position] !== "[") return null;
+    let j = position + 1;
+    while (source[j] === "=") j++;
+    if (source[j] !== "[") return null;
+    const equals = source.slice(position + 1, j);
+    const close = "]" + equals + "]";
+    const end = source.indexOf(close, j + 1);
+    return { end: end < 0 ? source.length : end + close.length };
   }
-  function readName() {
-    const start = i;
-    while (i < code.length && isNameChar(code[i])) {
-      i = i + 1;
-    }
-    return code.slice(start, i);
-  }
-  function mapName(name) {
-    if (!(name in map)) {
-      map[name] = randomThree(used);
-    }
-    return map[name];
-  }
-  while (i < code.length) {
-    const ch = code[i];
-    if (ch === String.fromCharCode(34) || ch === String.fromCharCode(39)) {
-      const quote = ch;
-      let j = i + 1;
-      while (j < code.length) {
-        if (code[j] === quote && code[j - 1] !== String.fromCharCode(92)) {
-          break;
-        }
-        j = j + 1;
+
+  function readQuoted(position) {
+    const quote = source[position];
+    let j = position + 1;
+    while (j < source.length) {
+      if (source[j] === "\\") {
+        j += 2;
+        continue;
       }
-      out.push(code.slice(i, j + 1));
-      i = j + 1;
-    } else if (ch === String.fromCharCode(91) && code[i + 1] === String.fromCharCode(91)) {
-      let j = code.indexOf("]]", i + 2);
-      if (j < 0) {
-        j = code.length - 1;
+      if (source[j] === quote) return j;
+      j++;
+    }
+    return source.length - 1;
+  }
+
+  function append(value) {
+    output += value;
+    if (value.length > 0) {
+      const last = value[value.length - 1];
+      if (!/\s/.test(last)) previousChar = last;
+    }
+  }
+
+  while (i < source.length) {
+    const ch = source[i];
+    const next = source[i + 1];
+
+    if (ch === "-" && next === "-") {
+      const longComment = readLongBracket(i + 2);
+      if (longComment) {
+        append(source.slice(i, longComment.end));
+        i = longComment.end;
       } else {
-        j = j + 1;
+        let end = i;
+        while (end < source.length && source[end] !== "\n") end++;
+        append(source.slice(i, end));
+        i = end;
       }
-      out.push(code.slice(i, j + 1));
-      i = j + 1;
-    } else if (ch === String.fromCharCode(46) || ch === String.fromCharCode(58)) {
-      out.push(ch);
-      i = i + 1;
-      while (i < code.length && code[i] === " ") {
-        out.push(code[i]);
-        i = i + 1;
+      previousWord = "";
+      continue;
+    }
+
+    if (ch === "[") {
+      const longString = readLongBracket(i);
+      if (longString) {
+        append(source.slice(i, longString.end));
+        i = longString.end;
+        previousWord = "";
+        continue;
       }
-      const start = i;
-      while (i < code.length && isNameChar(code[i])) {
-        i = i + 1;
-      }
-      out.push(code.slice(start, i));
-    } else if (isNameStart(ch)) {
-      const start = i;
-      while (i < code.length && isNameChar(code[i])) {
-        i = i + 1;
-      }
-      const word = code.slice(start, i);
-      if (word === "local") {
-        out.push(word);
-        copySpaces();
-        if (code.slice(i, i + 8) === "function" && (i + 8 >= code.length || !isNameChar(code[i + 8]))) {
-          out.push("function");
-          i = i + 8;
-          copySpaces();
-          const fname = readName();
-          if (fname) {
-            out.push(mapName(fname));
-          }
-          copySpaces();
-          if (i < code.length && code[i] === "(") {
-            i = parseParams(code, i, map, used, out);
-          }
-        } else {
-          while (true) {
-            const nstart = i;
-            while (i < code.length && isNameChar(code[i])) {
-              i = i + 1;
-            }
-            const name = code.slice(nstart, i);
-            if (!name) {
-              break;
-            }
-            out.push(mapName(name));
-            copySpaces();
-            if (i < code.length && code[i] === ",") {
-              out.push(",");
-              i = i + 1;
-              copySpaces();
-              continue;
-            }
-            break;
-          }
-        }
-      } else if (word === "function") {
-        out.push(word);
-        copySpaces();
-        if (i < code.length && code[i] === "(") {
-          i = parseParams(code, i, map, used, out);
-        } else {
-          const fname = readName();
-          if (fname) {
-            if (fname in map) {
-              out.push(map[fname]);
-            } else {
-              out.push(fname);
-            }
-          }
-          while (i < code.length && (code[i] === "." || code[i] === ":")) {
-            out.push(code[i]);
-            i = i + 1;
-            copySpaces();
-            const prop = readName();
-            out.push(prop);
-          }
-          copySpaces();
-          if (i < code.length && code[i] === "(") {
-            i = parseParams(code, i, map, used, out);
-          }
-        }
-      } else if (word === "for") {
-        out.push(word);
-        copySpaces();
-        while (true) {
-          const nstart = i;
-          while (i < code.length && isNameChar(code[i])) {
-            i = i + 1;
-          }
-          const name = code.slice(nstart, i);
-          if (!name) {
-            break;
-          }
-          out.push(mapName(name));
-          copySpaces();
-          if (i < code.length && code[i] === ",") {
-            out.push(",");
-            i = i + 1;
-            copySpaces();
-            continue;
-          }
-          if (code.slice(i, i + 2) === "in" && (i + 2 >= code.length || !isNameChar(code[i + 2]))) {
-            out.push("in");
-            i = i + 2;
-          }
-          break;
-        }
-      } else if (KEYWORDS.indexOf(word) >= 0) {
-        out.push(word);
-      } else if (word in map) {
-        out.push(map[word]);
+    }
+
+    if (ch === '"' || ch === "'") {
+      const end = readQuoted(i);
+      const original = source.slice(i, end + 1);
+      const inner = original.slice(1, -1);
+      const safe = CONFIG.encodeStrings && CONFIG.rot47 &&
+        !inner.includes("\\") && /^[\x20-\x7E]*$/.test(inner);
+
+      if (safe) {
+        append(decoderName + "(" + JSON.stringify(rot47(inner)) + ")");
       } else {
-        out.push(word);
+        append(original);
       }
-    } else {
-      out.push(ch);
-      i = i + 1;
+
+      i = end + 1;
+      previousWord = "";
+      continue;
     }
-  }
-  return out.join("");
-}
-function removeComments(code) {
-  let out = "";
-  let i = 0;
-  while (i < code.length) {
-    if (code[i] === "-" && code[i + 1] === "-") {
-      if (code[i + 2] === "[" && code[i + 3] === "[") {
-        const j = code.indexOf("]]", i + 4);
-        if (j < 0) {
-          break;
-        }
-        i = j + 2;
-        out = out + String.fromCharCode(10);
-      } else {
-        while (i < code.length && code[i] !== String.fromCharCode(10)) {
-          i = i + 1;
-        }
-        out = out + String.fromCharCode(10);
-      }
-    } else if (code[i] === String.fromCharCode(34) || code[i] === String.fromCharCode(39)) {
-      const q = code[i];
-      out = out + code[i];
-      i = i + 1;
-      while (i < code.length) {
-        out = out + code[i];
-        if (code[i] === q && code[i - 1] !== String.fromCharCode(92)) {
-          i = i + 1;
-          break;
-        }
-        i = i + 1;
-      }
-    } else if (code[i] === "[" && code[i + 1] === "[") {
-      const j = code.indexOf("]]", i + 2);
-      if (j < 0) {
-        out = out + code.slice(i);
-        break;
-      }
-      out = out + code.slice(i, j + 2);
-      i = j + 2;
-    } else {
-      out = out + code[i];
-      i = i + 1;
+
+    if (/[A-Za-z_]/.test(ch)) {
+      let end = i + 1;
+      while (end < source.length && /[A-Za-z0-9_]/.test(source[end])) end++;
+
+      const word = source.slice(i, end);
+      let nextIndex = end;
+
+      while (/\s/.test(source[nextIndex] || "")) nextIndex++;
+
+      const isPrintCall = CONFIG.customPrint &&
+        word === "print" &&
+        source[nextIndex] === "(" &&
+        previousChar !== "." &&
+        previousChar !== ":" &&
+        previousWord !== "function";
+
+      append(isPrintCall ? printName : word);
+      previousWord = word;
+      i = end;
+      continue;
     }
-  }
-  return out;
-}
-function encodeStrings(code) {
-  let out = "";
-  let i = 0;
-  while (i < code.length) {
-    if (code[i] === String.fromCharCode(34)) {
-      let j = i + 1;
-      let inner = "";
-      while (j < code.length && code[j] !== String.fromCharCode(34)) {
-        if (code[j] === String.fromCharCode(92) && j + 1 < code.length) {
-          inner = inner + code[j] + code[j + 1];
-          j = j + 2;
-        } else {
-          inner = inner + code[j];
-          j = j + 1;
-        }
-      }
-      const r47 = rot47(inner);
-      const key = generateRandomKey();
-      const xored = xorEncrypt(r47, key);
-      const b91 = base91Encode(xored);
-      out = out + "_XOR(" + String.fromCharCode(34) + b91 + String.fromCharCode(34) + "," + String.fromCharCode(34) + key + String.fromCharCode(34) + ")";
-      i = j + 1;
-    } else if (code[i] === String.fromCharCode(39)) {
-      let j = i + 1;
-      let inner = "";
-      while (j < code.length && code[j] !== String.fromCharCode(39)) {
-        if (code[j] === String.fromCharCode(92) && j + 1 < code.length) {
-          inner = inner + code[j] + code[j + 1];
-          j = j + 2;
-        } else {
-          inner = inner + code[j];
-          j = j + 1;
-        }
-      }
-      const r47 = rot47(inner);
-      const key = generateRandomKey();
-      const xored = xorEncrypt(r47, key);
-      const b91 = base91Encode(xored);
-      out = out + "_XOR(" + String.fromCharCode(34) + b91 + String.fromCharCode(34) + "," + String.fromCharCode(34) + key + String.fromCharCode(34) + ")";
-      i = j + 1;
-    } else {
-      out = out + code[i];
-      i = i + 1;
+
+    append(ch);
+
+    if (!/\s/.test(ch) && !/[A-Za-z0-9_]/.test(ch)) {
+      previousWord = "";
     }
+
+    i++;
   }
-  return out;
-}
-function makePadString(length) {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let s = "";
-  for (let i = 0; i < length; i++) {
-    s = s + chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return s;
-}
-function makePadding() {
-  const q = String.fromCharCode(34);
-  const nl = String.fromCharCode(10);
-  const padLen = 500 + Math.floor(Math.random() * 501);
-  const safePad = makePadString(padLen).replace(/["']/g, "");
-  return "local _pad = " + q + safePad + q + nl;
-}
-function wrapComplexity(code) {
-  let wKey1 = makePadString(3);
-  let wKey2 = makePadString(3);
-  let wrapped = "do\n";
-  wrapped += "local function " + wKey1 + "()\n";
-  wrapped += "local function " + wKey2 + "()\n";
-  wrapped += code + "\n";
-  wrapped += "end\n";
-  wrapped += wKey2 + "()\n";
-  wrapped += "end\n";
-  wrapped += wKey1 + "()\n";
-  wrapped += "end";
-  return wrapped;
-}
-function splitOnePerLine(body) {
-  const fixed = [];
-  const parts = body.split(String.fromCharCode(10));
-  for (const line of parts) {
-    let rest = line;
-    while (true) {
-      const hit = rest.indexOf(") ");
-      if (hit < 0) {
-        fixed.push(rest);
-        break;
-      }
-      const after = rest.slice(hit + 2);
-      if (after.startsWith("local ") || /^[A-Za-z_][A-Za-z0-9_]*\s*\(/.test(after)) {
-        fixed.push(rest.slice(0, hit + 1));
-        rest = after;
-      } else {
-        fixed.push(rest);
-        break;
-      }
-    }
-  }
-  return fixed;
-}
-function cffLPH(blocks) {
-  const lines = [];
-  lines.push("local _LPH = 1");
-  lines.push("while true do");
-  lines.push("if _LPH == 0 then");
-  lines.push("break");
-  for (let index = 0; index < blocks.length; index++) {
-    const body = blocks[index][1];
-    lines.push("elseif _LPH == " + (index + 1) + " then");
-    for (const line of splitOnePerLine(body)) {
-      lines.push(line);
-    }
-    if (index + 1 < blocks.length) {
-      lines.push("_LPH = " + (index + 2));
-    } else {
-      lines.push("_LPH = 0");
-    }
-  }
-  lines.push("else");
-  lines.push("_LPH = 0");
-  lines.push("end");
-  lines.push("end");
-  return lines.join(String.fromCharCode(10));
+
+  return output;
 }
 
-const LUAU_RUNTIME = [
-  'local _B91C = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_-{|}~" .. string.char(39)',
-  'local _B91M = {}',
-  'for _i = 1, #_B91C do',
-  '    _B91M[string.sub(_B91C, _i, _i)] = _i - 1',
-  'end',
-  'local function _B91D(s)',
-  '    local _v = -1',
-  '    local _b = 0',
-  '    local _n = 0',
-  '    local _o = {}',
-  '    for _i = 1, #s do',
-  '        local _p = _B91M[string.sub(s, _i, _i)]',
-  '        if _p then',
-  '            if _v < 0 then',
-  '                _v = _p',
-  '            else',
-  '                _v = _v + _p * 91',
-  '                _b = _b + _v * (2 ^ _n)',
-  '                if (_v % 8192) > 88 then',
-  '                    _n = _n + 13',
-  '                else',
-  '                    _n = _n + 14',
-  '                end',
-  '                while _n >= 8 do',
-  '                    table.insert(_o, string.char(_b % 256))',
-  '                    _b = math.floor(_b / 256)',
-  '                    _n = _n - 8',
-  '                end',
-  '                _v = -1',
-  '            end',
-  '        end',
-  '    end',
-  '    if _v >= 0 then',
-  '        table.insert(_o, string.char((_b + _v * (2 ^ _n)) % 256))',
-  '    end',
-  '    return table.concat(_o)',
-  'end',
-  'local function _R47(s)',
-  '    local r = {}',
-  '    for i = 1, #s do',
-  '        local c = string.byte(s, i)',
-  '        if c >= 33 and c <= 126 then',
-  '            c = 33 + ((c + 14) % 94)',
-  '        end',
-  '        table.insert(r, string.char(c))',
-  '    end',
-  '    return table.concat(r)',
-  'end',
-  'local function _XOR(data, key)',
-  '    local decoded = _B91D(data)',
-  '    local res = {}',
-  '    for i = 1, #decoded do',
-  '        local b = string.byte(decoded, i)',
-  '        local k = string.byte(key, ((i - 1) % #key) + 1)',
-  '        table.insert(res, string.char(bit32 and bit32.bxor(b, k) or (b ~ k)))',
-  '    end',
-  '    return _R47(table.concat(res))',
-  'end'
-].join(String.fromCharCode(10));
+function createRuntime(decoderName, printName) {
+  const lines = [];
+
+  if (CONFIG.encodeStrings && CONFIG.rot47) {
+    lines.push("local function " + decoderName + "(s)");
+    lines.push("local o = {}");
+    lines.push("for i = 1, #s do");
+    lines.push("local b = string.byte(s, i)");
+    lines.push("if b >= 33 and b <= 126 then");
+    lines.push("b = ((b - 33 + 47) % 94) + 33");
+    lines.push("end");
+    lines.push("o[i] = string.char(b)");
+    lines.push("end");
+    lines.push("return table.concat(o)");
+    lines.push("end");
+  }
+
+  if (CONFIG.customPrint) {
+    lines.push("");
+    lines.push("local function " + printName + "(...)");
+    lines.push("return print(...)");
+    lines.push("end");
+  }
+
+  return lines.join("\n");
+}
 
 function obfuscate(code) {
-  const cleaned = removeComments(code);
-  const renamed = renameVars(cleaned);
-  const encoded = encodeStrings(renamed);
-  const complex = wrapComplexity(encoded);
-  const minified = " ".join(complex.split());
-  const blocks = [["function", minified]];
-  const flat = cffLPH(blocks);
-  const head = "local _big = " + String.fromCharCode(34) + makePadString(120) + String.fromCharCode(34) + String.fromCharCode(10);
-  const tail = makePadding();
-  return LUAU_RUNTIME + String.fromCharCode(10) + String.fromCharCode(10) + head + flat + String.fromCharCode(10) + String.fromCharCode(10) + tail;
+  if (typeof code !== "string" || !code.trim()) {
+    throw new Error("Source code cannot be empty.");
+  }
+
+  if (code.length > 1000000) {
+    throw new Error("Source exceeds the 1 MB limit.");
+  }
+
+  const decoderName = randomName(code, "_decode");
+  const printName = randomName(code + decoderName, "_output");
+
+  const runtime = createRuntime(decoderName, printName);
+  const transformed = transformSource(code, decoderName, printName);
+
+  const sections = [];
+
+  sections.push(runtime);
+  sections.push("");
+
+  if (CONFIG.wrapInDo) {
+    sections.push("do");
+    sections.push(transformed);
+    sections.push("end");
+  } else {
+    sections.push(transformed);
+  }
+
+  return sections.join("\n");
+}
+
+function updateStats(original, protectedCode) {
+  const originalSize = byteLength(original);
+  const protectedSize = byteLength(protectedCode);
+
+  const overhead = originalSize > 0
+    ? ((protectedSize - originalSize) / originalSize) * 100
+    : 0;
+
+  const origElement = document.getElementById("origBytes");
+  const protElement = document.getElementById("protBytes");
+  const growElement = document.getElementById("growPct");
+
+  if (origElement) origElement.textContent = originalSize.toLocaleString();
+  if (protElement) protElement.textContent = protectedSize.toLocaleString();
+  if (growElement) growElement.textContent = overhead.toFixed(2) + "%";
 }
 
 const hamburger = document.getElementById("hamburger");
@@ -559,81 +240,129 @@ const copyBtn = document.getElementById("copyBtn");
 const sidebarOverlay = document.getElementById("sidebarOverlay");
 
 function refreshIcons() {
-  if (window.lucide) {
-    lucide.createIcons();
-  }
+  if (window.lucide) window.lucide.createIcons();
 }
+
 function toggleSidebar() {
+  if (!sidebar) return;
   sidebar.classList.toggle("open");
-  if (sidebarOverlay) {
-    sidebarOverlay.classList.toggle("open");
-  }
+  if (sidebarOverlay) sidebarOverlay.classList.toggle("open");
   refreshIcons();
 }
-if (sidebarOverlay) {
-  sidebarOverlay.addEventListener("click", toggleSidebar);
+
+function closeSidebar() {
+  if (sidebar) sidebar.classList.remove("open");
+  if (sidebarOverlay) sidebarOverlay.classList.remove("open");
 }
+
 function showTab(tabName) {
-  document.querySelectorAll(".nav-item").forEach(function (item) {
-    item.classList.remove("active");
-  });
-  document.querySelectorAll(".tab-panel").forEach(function (panel) {
-    panel.classList.remove("active");
-  });
   navItems.forEach(function (item) {
     item.classList.toggle("active", item.dataset.tab === tabName);
   });
+
   panels.forEach(function (panel) {
     panel.classList.toggle("active", panel.id === tabName);
   });
-  sidebar.classList.remove("open");
-  if (sidebarOverlay) {
-    sidebarOverlay.classList.remove("open");
-  }
+
+  closeSidebar();
   refreshIcons();
 }
+
 async function protect() {
-  const raw = inputCode.value.trim();
-  if (!raw) {
+  if (!inputCode || !outputCode) return;
+
+  const raw = inputCode.value;
+
+  if (!raw.trim()) {
     outputCode.textContent = "Paste Luau code first.";
+    updateStats("", "");
     return;
   }
-  const result = obfuscate(raw);
-  outputCode.textContent = result;
+
+  if (protectBtn) {
+    protectBtn.disabled = true;
+    protectBtn.textContent = "Compiling...";
+  }
+
+  try {
+    const result = obfuscate(raw);
+    outputCode.textContent = result;
+    updateStats(raw, result);
+  } catch (error) {
+    outputCode.textContent = "Compilation failed: " + error.message;
+  } finally {
+    if (protectBtn) {
+      protectBtn.disabled = false;
+      protectBtn.innerHTML = '<i data-lucide="lock"></i>Secure & Compile';
+    }
+    refreshIcons();
+  }
 }
+
 function clearAll() {
-  inputCode.value = "";
-  outputCode.textContent = "Waiting for input stream...";
-  inputCode.focus();
+  if (inputCode) {
+    inputCode.value = "";
+    inputCode.focus();
+  }
+
+  if (outputCode) {
+    outputCode.textContent = "Waiting for input stream...";
+  }
+
+  updateStats("", "");
+  refreshIcons();
 }
-function copyOutput() {
+
+async function copyOutput() {
+  if (!outputCode || !copyBtn) return;
+
   const text = outputCode.textContent || "";
-  const area = document.createElement("textarea");
-  area.value = text;
-  area.setAttribute("readonly", "");
-  area.style.position = "fixed";
-  area.style.opacity = "0";
-  document.body.appendChild(area);
-  area.select();
-  document.execCommand("copy");
-  document.body.removeChild(area);
-  copyBtn.textContent = "Copied to Clipboard";
+
+  if (!text || text === "Waiting for input stream...") return;
+
+  const originalLabel = "Copy Protected Output";
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+
+      const success = document.execCommand("copy");
+      document.body.removeChild(area);
+
+      if (!success) throw new Error("Clipboard operation failed.");
+    }
+
+    copyBtn.textContent = "Copied to Clipboard";
+  } catch (error) {
+    copyBtn.textContent = "Copy Failed";
+  }
+
   setTimeout(function () {
-    copyBtn.textContent = "Copy Protected Output";
-  }, 1200);
+    copyBtn.innerHTML = '<i data-lucide="copy"></i>' + originalLabel;
+    refreshIcons();
+  }, 1500);
 }
-if (hamburger) {
-  hamburger.addEventListener("click", toggleSidebar);
-}
+
+if (hamburger) hamburger.addEventListener("click", toggleSidebar);
+if (sidebarOverlay) sidebarOverlay.addEventListener("click", closeSidebar);
+
 navItems.forEach(function (item) {
   item.addEventListener("click", function () {
     showTab(item.dataset.tab);
   });
 });
+
 if (protectBtn) protectBtn.addEventListener("click", protect);
 if (clearBtn) clearBtn.addEventListener("click", clearAll);
 if (copyBtn) copyBtn.addEventListener("click", copyOutput);
-document.addEventListener("DOMContentLoaded", function () {
-  refreshIcons();
-});
+
 refreshIcons();
+updateStats("", "");
