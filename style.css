@@ -13,6 +13,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: nowrap;
   background: #161b22;
   border-bottom: 1px solid #30363d;
   padding: 0 18px;
@@ -23,6 +24,20 @@ body {
   align-items: center;
   gap: 12px;
   min-width: 0;
+  flex: 1;
+}
+.icon-fallback {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #21262d;
+  color: #58a6ff;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+  flex-shrink: 0;
 }
 .brand img {
   width: 34px;
@@ -32,8 +47,14 @@ body {
   flex-shrink: 0;
 }
 .hamburger {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  z-index: 100;
+  pointer-events: auto;
+  flex-shrink: 0;
+  position: relative;
   background: transparent;
   border: 1px solid #30363d;
   border-radius: 8px;
@@ -60,7 +81,8 @@ body {
   top: 72px;
   right: -320px;
   width: 320px;
-  max-width: 88vw;
+  min-width: 280px;
+  max-width: 380px;
   height: calc(100vh - 72px);
   background: #161b22;
   border-left: 1px solid #30363d;
@@ -169,6 +191,8 @@ label {
 textarea {
   width: 100%;
   min-height: 240px;
+  overflow: auto;
+  resize: vertical;
   background: #0d1117;
   color: #e6edf3;
   border: 1px solid #30363d;
@@ -200,6 +224,8 @@ textarea {
 }
 .output-box {
   min-height: 180px;
+  overflow: auto;
+  resize: vertical;
   background: #0d1117;
   border: 1px solid #30363d;
   border-radius: 10px;
@@ -266,6 +292,30 @@ button {
   .sidebar {
     width: 320px;
     max-width: 88vw;
+    min-width: 280px;
     overflow-x: hidden;
   }
+}
+.bug-hunt {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 18px;
+  margin-top: 24px;
+}
+.bug-hunt h2 {
+  margin: 0 0 10px;
+  font-size: 22px;
+}
+.bug-hunt p {
+  color: #8b949e;
+  line-height: 1.6;
+}
+.bug-hunt ol {
+  color: #e6edf3;
+  line-height: 1.7;
+  padding-left: 20px;
+}
+.bug-hunt li {
+  margin-bottom: 10px;
 }
