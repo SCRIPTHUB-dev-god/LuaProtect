@@ -259,12 +259,131 @@ function replacePrint(code) {
   return out.join("");
 }
 
-function isNameChar(ch) {
-  return (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9") || ch === "_";
+function encodeStrings(code) {
+  let out = "";
+  let i = 0;
+  const q = String.fromCharCode(34);
+  while (i < code.length) {
+    if (code[i] === String.fromCharCode(34) || code[i] === String.fromCharCode(39)) {
+      const quote = code[i];
+      let j = i + 1;
+      let inner = "";
+      while (j < code.length && code[j] !== quote) {
+        if (code[j] === String.fromCharCode(92) && j + 1 < code.length) {
+          inner = inner + code[j] + code[j + 1];
+          j = j + 2;
+        } else {
+          inner = inner + code[j];
+          j = j + 1;
+        }
+      }
+      const key = generateRandomKey();
+      const xored = xorEncrypt(inner, key);
+      const r47 = rot47(xored);
+      const b91 = base91Encode(r47);
+      out = out + "_XOR(" + q + b91 + q + "," + q + key + q + ")";
+      i = j + 1;
+    } else {
+      out = out + code[i];
+      i = i + 1;
+    }
+  }
+  return out;
 }
 
-function isNameStart(ch) {
-  return (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || ch === "_";
+function splitOnePerLine(body) {
+  const fixed = [];
+  const parts = body.split(String.fromCharCode(10));
+  for (const line of parts) {
+    let rest = line;
+    while (true) {
+      const hit = rest.indexOf(") ");
+      if (hit < 0) {
+        fixed.push(rest);
+        break;
+      }
+      const after = rest.slice(hit + 2);
+      if (after.startsWith("local ") || /^[A-Za-z][A-Za-z0-9]\s*\(/.test(after)) {
+        fixed.push(rest.slice(0, hit + 1));
+        rest = after;
+      } else {
+        fixed.push(rest);
+        break;
+      }
+    }
+  }
+  return fixed;
+}
+
+function cffLPH(blocks) {
+  const lines = [];
+  lines.push("local _LPH = 1");
+  lines.push("while true do");
+  lines.push("if _LPH == 0 then");
+  lines.push("break");
+  for (let index = 0; index < blocks.length; index++) {
+    const body = blocks[index][1];
+    lines.push("elseif _LPH == " + (index + 1) + " then");
+    for (const line of splitOnePerLine(body)) {
+      lines.push(line);
+    }
+    if (index + 1 < blocks.length) {
+      lines.push("_LPH = " + (index + 2));
+    } else {
+      lines.push("_LPH = 0");
+    }
+  }
+  lines.push("else");
+  lines.push("_LPH = 0");
+  lines.push("end");
+  lines.push("end");
+  return lines.join(String.fromCharCode(10));
+}
+
+function randomOpcodes() {
+  const mnems = ["halt", "pushs", "pushn", "pushnil", "pushtrue", "pushfalse", "load", "store", "add", "sub", "mul", "div", "concat", "eq", "ne", "lt", "gt", "le", "ge", "neg", "call", "jmp", "jz", "forinit", "forloop", "nop"];
+  const used = {};
+  const map = {};
+  for (const m of mnems) {
+    let v;
+    do {
+      v = 11 + Math.floor(Math.random() * 40);
+    } while (v in used);
+    used[v] = true;
+    map[m] = v;
+  }
+  return map;
+}
+
+function dxEncrypt(plain, seed, idx) {
+  let x = "";
+  for (let i = 0; i < plain.length; i++) {
+    const b = plain.charCodeAt(i);
+    const k = seed.charCodeAt((i + idx * 13) % seed.length);
+    x += String.fromCharCode(b ^ k);
+  }
+  return rot47(x);
+}
+
+function xorStr(s, key) {
+  let o = "";
+  for (let i = 0; i < s.length; i++) {
+    o += String.fromCharCode(s.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+  }
+  return o;
+}
+
+function encryptCall(inner) {
+  const key = generateRandomKey();
+  const r47 = rot47(xorEncrypt(inner, key));
+  const b91 = base91Encode(r47);
+  return '_XOR("' + b91 + '","' + key + '")';
+}
+
+const VM_MARK = "code in protection by lord-luau.vercel.app";
+
+function bfChecksum(key) {
+  return key;
 }
 
 function luaDqEsc(s) {
@@ -438,11 +557,42 @@ function obfuscate(code) {
   cleaned = generateProxifiedCode(cleaned);
   cleaned += "\n" + makeJunkDoBlocks();
   const printed = replacePrint(cleaned);
+  let compiled = null;
+  try {
+    compiled = compileVM(printed);
+  } catch (err) {
+    compiled = null;
+  }
+  if (compiled && compiled.bc.length > 2) {
+    return emitVM(compiled);
+  }
+  const renamed = renameVars(printed);
+  const padded = renamed + String.fromCharCode(10) + makeJunkDoBlocks();
+  const encoded = encodeStrings(padded);
+  const parts = [];
+  let current = "";
+  for (const ch of encoded) {
+    if (ch === " " || ch === String.fromCharCode(10) || ch === String.fromCharCode(9) || ch === String.fromCharCode(13)) {
+      if (current) {
+        parts.push(current);
+        current = "";
+      }
+    } else {
+      current = current + ch;
+    }
+  }
+  if (current) {
+    parts.push(current);
+  }
+  const minified = parts.join(" ");
+  const blocks = [["function", minified]];
+  const flat = cffLPH(blocks);
+  const wrapped = "do" + String.fromCharCode(10) + flat + String.fromCharCode(10) + "end";
   
-  const header = `(([([[\ncode in protection by lord-luau.vercel.app v1.0\n]]):gsub(".+", function()\n`;
+  const header = `(("code in protection by lord-luau.vercel.app v1.0"):gsub(".+", function()\n`;
   const footer = `\nend))()`;
-
-  return flattenLua(header + LUAU_RUNTIME + "\n" + printed + footer);
+  const legacy = header + LUAU_RUNTIME + String.fromCharCode(10) + String.fromCharCode(10) + wrapped + footer;
+  return flattenLua(legacy);
 }
 
 function collapseLua(src) {
