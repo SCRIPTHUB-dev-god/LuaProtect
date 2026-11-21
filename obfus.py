@@ -1,3 +1,5 @@
+ENGINE_ONLY = "ENGINE ONLY - RUN FROM JS - obfus.py IS THE PROTECTION ENGINE"
+__all__ = ["obfuscate", "base91_encode", "base91_decode", "build_lph_cff"]
 B91_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_-{|}~'"
 B91_MAP = {}
 for _i, _c in enumerate(B91_CHARS):
@@ -207,12 +209,19 @@ def obfuscate(code):
     cleaned = remove_comments(code)
     renamed = rename_locals(cleaned)
     encoded = encode_strings(renamed)
-    function_block = ("function", encoded)
-    do_block = ("do", "do " + encoded + " end")
-    for_block = ("for", "for _i = 1, 1 do " + encoded + " end")
+    minified = " ".join(encoded.split())
+    function_block = ("function", minified)
+    do_block = ("do", "do " + minified + " end")
+    for_block = ("for", "for _i = 1, 1 do " + minified + " end")
     blocks = [function_block, do_block, for_block]
     flat = build_lph_cff(blocks)
     return flat + chr(10) + chr(10) + LUAU_RUNTIME
+
+
+try:
+    window.ObfusEngine = {"obfuscate": obfuscate}
+except Exception:
+    pass
 
 
 if __name__ == "__main__":
