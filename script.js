@@ -66,6 +66,26 @@ function base91Decode(text) {
   }
   return new TextDecoder().decode(new Uint8Array(out));
 }
+
+// Fitur Baru #2: String Encryption No VM (XOR + Base91)
+function xorEncrypt(text, key) {
+  let result = "";
+  for (let i = 0; i < text.length; i++) {
+    const charCode = text.charCodeAt(i) ^ key.charCodeAt(i % key.length);
+    result += String.fromCharCode(charCode);
+  }
+  return result;
+}
+
+function generateRandomKey() {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let key = "";
+  for (let i = 0; i < 4; i++) {
+    key += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return key;
+}
+
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const KEYWORDS = ["and", "break", "do", "else", "elseif", "end", "false", "for", "function", "goto", "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while"];
 function randomThree(used) {
@@ -322,6 +342,7 @@ function removeComments(code) {
   }
   return out;
 }
+
 function encodeStrings(code) {
   let out = "";
   let i = 0;
@@ -338,7 +359,10 @@ function encodeStrings(code) {
           j = j + 1;
         }
       }
-      out = out + "_B91D(" + String.fromCharCode(34) + base91Encode(inner) + String.fromCharCode(34) + ")";
+      const key = generateRandomKey();
+      const xored = xorEncrypt(inner, key);
+      const b91 = base91Encode(xored);
+      out = out + "_XOR(" + String.fromCharCode(34) + b91 + String.fromCharCode(34) + "," + String.fromCharCode(34) + key + String.fromCharCode(34) + ")";
       i = j + 1;
     } else if (code[i] === String.fromCharCode(39)) {
       let j = i + 1;
@@ -352,7 +376,10 @@ function encodeStrings(code) {
           j = j + 1;
         }
       }
-      out = out + "_B91D(" + String.fromCharCode(34) + base91Encode(inner) + String.fromCharCode(34) + ")";
+      const key = generateRandomKey();
+      const xored = xorEncrypt(inner, key);
+      const b91 = base91Encode(xored);
+      out = out + "_XOR(" + String.fromCharCode(34) + b91 + String.fromCharCode(34) + "," + String.fromCharCode(34) + key + String.fromCharCode(34) + ")";
       i = j + 1;
     } else {
       out = out + code[i];
@@ -361,6 +388,7 @@ function encodeStrings(code) {
   }
   return out;
 }
+
 function makePadString(length) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let s = "";
@@ -374,21 +402,7 @@ function makePadding() {
   const nl = String.fromCharCode(10);
   const padLen = 500 + Math.floor(Math.random() * 501);
   const safePad = makePadString(padLen).replace(/["']/g, "");
-  const pad = "local _pad = " + q + safePad + q + nl;
-  let dummy = "local _dummy = {";
-  for (let i = 1; i <= 50; i++) {
-    dummy = dummy + " _k" + i + " = " + Math.floor(Math.random() * 100000);
-    if (i < 50) {
-      dummy = dummy + ",";
-    }
-  }
-  dummy = dummy + " }" + nl;
-  const junkNames = ["_AbC", "_DeF", "_GhI"];
-  let junk = "";
-  for (let i = 0; i < junkNames.length; i++) {
-    junk = junk + "local " + junkNames[i] + " = function() return " + (101 + i) + " end" + nl;
-  }
-  return pad + dummy + junk;
+  return "local _pad = " + q + safePad + q + nl;
 }
 function splitOnePerLine(body) {
   const fixed = [];
@@ -437,45 +451,85 @@ function cffLPH(blocks) {
   lines.push("end");
   return lines.join(String.fromCharCode(10));
 }
+
+// Runtime Luau termasuk String XOR Decrypt + Opsional Env Logger
 const LUAU_RUNTIME = [
   'local _B91C = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_-{|}~" .. string.char(39)',
-  "local _B91M = {}",
-  "for _i = 1, #_B91C do",
-  "    _B91M[string.sub(_B91C, _i, _i)] = _i - 1",
-  "end",
-  "local function _B91D(s)",
-  "    local _v = -1",
-  "    local _b = 0",
-  "    local _n = 0",
-  "    local _o = {}",
-  "    for _i = 1, #s do",
-  "        local _p = _B91M[string.sub(s, _i, _i)]",
-  "        if _p then",
-  "            if _v < 0 then",
-  "                _v = _p",
-  "            else",
-  "                _v = _v + _p * 91",
-  "                _b = _b + _v * (2 ^ _n)",
-  "                if (_v % 8192) > 88 then",
-  "                    _n = _n + 13",
-  "                else",
-  "                    _n = _n + 14",
-  "                end",
-  "                while _n >= 8 do",
-  "                    table.insert(_o, string.char(_b % 256))",
-  "                    _b = math.floor(_b / 256)",
-  "                    _n = _n - 8",
-  "                end",
-  "                _v = -1",
-  "            end",
-  "        end",
-  "    end",
-  "    if _v >= 0 then",
-  "        table.insert(_o, string.char((_b + _v * (2 ^ _n)) % 256))",
-  "    end",
-  "    return table.concat(_o)",
-  "end"
+  'local _B91M = {}',
+  'for _i = 1, #_B91C do',
+  '    _B91M[string.sub(_B91C, _i, _i)] = _i - 1',
+  'end',
+  'local function _B91D(s)',
+  '    local _v = -1',
+  '    local _b = 0',
+  '    local _n = 0',
+  '    local _o = {}',
+  '    for _i = 1, #s do',
+  '        local _p = _B91M[string.sub(s, _i, _i)]',
+  '        if _p then',
+  '            if _v < 0 then',
+  '                _v = _p',
+  '            else',
+  '                _v = _v + _p * 91',
+  '                _b = _b + _v * (2 ^ _n)',
+  '                if (_v % 8192) > 88 then',
+  '                    _n = _n + 13',
+  '                else',
+  '                    _n = _n + 14',
+  '                end',
+  '                while _n >= 8 do',
+  '                    table.insert(_o, string.char(_b % 256))',
+  '                    _b = math.floor(_b / 256)',
+  '                    _n = _n - 8',
+  '                end',
+  '                _v = -1',
+  '            end',
+  '        end',
+  '    end',
+  '    if _v >= 0 then',
+  '        table.insert(_o, string.char((_b + _v * (2 ^ _n)) % 256))',
+  '    end',
+  '    return table.concat(_o)',
+  'end',
+  'local function _XOR(data, key)',
+  '    local decoded = _B91D(data)',
+  '    local res = {}',
+  '    for i = 1, #decoded do',
+  '        local b = string.byte(decoded, i)',
+  '        local k = string.byte(key, ((i - 1) % #key) + 1)',
+  '        table.insert(res, string.char(bit32 and bit32.bxor(b, k) or (b ~ k)))',
+  '    end',
+  '    return table.concat(res)',
+  'end',
+  '-- [FITUR 1: ENV LOGGER PROXY]',
+  'local _ENABLE_LOGGER = false -- Ubah ke true jika ingin mengaktifkan env logger',
+  'if _ENABLE_LOGGER then',
+  '    local logBuffer = {}',
+  '    local function record(action, name, val)',
+  '        table.insert(logBuffer, string.format("[%s] %s -> %s", action, tostring(name), tostring(val)))',
+  '    end',
+  '    local envProxy = setmetatable({}, {',
+  '        __index = function(_, k)',
+  '            record("GET", k, rawget(_G, k))',
+  '            local v = rawget(_G, k)',
+  '            if type(v) == "function" then',
+  '                return function(...)',
+  '                    record("CALL", k, select("#", ...))',
+  '                    return v(...)',
+  '                end',
+  '            end',
+  '            return v',
+  '        end,',
+  '        __newindex = function(_, k, v)',
+  '            record("SET", k, v)',
+  '            rawset(_G, k, v)',
+  '        end',
+  '    })',
+  '    -- Uncomment baris bawah untuk inject proxy ke environment',
+  '    -- setfenv(1, envProxy)',
+  'end'
 ].join(String.fromCharCode(10));
+
 const PY_ENGINE = [
   'import random',
   'import string',
@@ -483,20 +537,6 @@ const PY_ENGINE = [
   'B91_MAP = {}',
   'for _i, _c in enumerate(B91_CHARS):',
   '    B91_MAP[_c] = _i',
-  'LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"',
-  'KEYWORDS = ["and", "break", "do", "else", "elseif", "end", "false", "for", "function", "goto", "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while"]',
-  'def random_three(used):',
-  '    while True:',
-  '        name = ""',
-  '        for _k in range(3):',
-  '            name = name + LETTERS[random.randrange(len(LETTERS))]',
-  '        if name not in used and name not in KEYWORDS:',
-  '            used.add(name)',
-  '            return name',
-  'def is_name_char(ch):',
-  '    return ("a" <= ch <= "z") or ("A" <= ch <= "Z") or ("0" <= ch <= "9") or ch == "_"',
-  'def is_name_start(ch):',
-  '    return ("a" <= ch <= "z") or ("A" <= ch <= "Z") or ch == "_"',
   'def base91_encode(data):',
   '    if isinstance(data, str):',
   '        data = data.encode("utf-8")',
@@ -522,32 +562,13 @@ const PY_ENGINE = [
   '        if n > 7 or b > 90:',
   '            out.append(B91_CHARS[b // 91])',
   '    return "".join(out)',
-  'def base91_decode(text):',
-  '    v = -1',
-  '    b = 0',
-  '    n = 0',
-  '    out = bytearray()',
-  '    for ch in text:',
-  '        if ch not in B91_MAP:',
-  '            continue',
-  '        p = B91_MAP[ch]',
-  '        if v < 0:',
-  '            v = p',
-  '        else:',
-  '            v = v + p * 91',
-  '            b = b | (v << n)',
-  '            if (v & 8191) > 88:',
-  '                n = n + 13',
-  '            else:',
-  '                n = n + 14',
-  '            while n >= 8:',
-  '                out.append(b & 255)',
-  '                b = b >> 8',
-  '                n = n - 8',
-  '            v = -1',
-  '    if v >= 0:',
-  '        out.append((b | (v << n)) & 255)',
-  '    return bytes(out)',
+  'def xor_encrypt(text, key):',
+  '    res = []',
+  '    for i, c in enumerate(text):',
+  '        res.append(chr(ord(c) ^ ord(key[i % len(key)])))',
+  '    return "".join(res)',
+  'def generate_random_key():',
+  '    return "".join(random.choices(string.ascii_letters + string.digits, k=4))',
   'def remove_comments(code):',
   '    result = ""',
   '    i = 0',
@@ -584,181 +605,6 @@ const PY_ENGINE = [
   '            result = result + code[i]',
   '            i = i + 1',
   '    return result',
-  'def parse_params(code, i, mapping, used, out):',
-  '    out.append("(")',
-  '    i = i + 1',
-  '    while i < len(code) and code[i] != ")":',
-  '        if is_name_start(code[i]):',
-  '            start = i',
-  '            while i < len(code) and is_name_char(code[i]):',
-  '                i = i + 1',
-  '            name = code[start:i]',
-  '            if name not in mapping:',
-  '                mapping[name] = random_three(used)',
-  '            out.append(mapping[name])',
-  '        else:',
-  '            out.append(code[i])',
-  '            i = i + 1',
-  '    if i < len(code) and code[i] == ")":',
-  '        out.append(")")',
-  '        i = i + 1',
-  '    return i',
-  'def rename_vars(code):',
-  '    mapping = {}',
-  '    used = set()',
-  '    out = []',
-  '    i = 0',
-  '    while i < len(code):',
-  '        ch = code[i]',
-  '        if ch == chr(34) or ch == chr(39):',
-  '            q = ch',
-  '            j = i + 1',
-  '            while j < len(code):',
-  '                if code[j] == q and code[j - 1] != chr(92):',
-  '                    break',
-  '                j = j + 1',
-  '            out.append(code[i:j + 1])',
-  '            i = j + 1',
-  '        elif ch == chr(91) and i + 1 < len(code) and code[i + 1] == chr(91):',
-  '            j = code.find("]]", i + 2)',
-  '            if j < 0:',
-  '                j = len(code) - 1',
-  '            else:',
-  '                j = j + 1',
-  '            out.append(code[i:j + 1])',
-  '            i = j + 1',
-  '        elif ch == chr(46) or ch == chr(58):',
-  '            out.append(ch)',
-  '            i = i + 1',
-  '            while i < len(code) and code[i] == " ":',
-  '                out.append(code[i])',
-  '                i = i + 1',
-  '            start = i',
-  '            while i < len(code) and is_name_char(code[i]):',
-  '                i = i + 1',
-  '            out.append(code[start:i])',
-  '        elif is_name_start(ch):',
-  '            start = i',
-  '            while i < len(code) and is_name_char(code[i]):',
-  '                i = i + 1',
-  '            word = code[start:i]',
-  '            if word == "local":',
-  '                out.append(word)',
-  '                while i < len(code) and code[i] == " ":',
-  '                    out.append(code[i])',
-  '                    i = i + 1',
-  '                if code[i:i + 8] == "function" and (i + 8 >= len(code) or not is_name_char(code[i + 8])):',
-  '                    out.append("function")',
-  '                    i = i + 8',
-  '                    while i < len(code) and code[i] == " ":',
-  '                        out.append(code[i])',
-  '                        i = i + 1',
-  '                    fstart = i',
-  '                    while i < len(code) and is_name_char(code[i]):',
-  '                        i = i + 1',
-  '                    fname = code[fstart:i]',
-  '                    if fname:',
-  '                        if fname not in mapping:',
-  '                            mapping[fname] = random_three(used)',
-  '                        out.append(mapping[fname])',
-  '                    while i < len(code) and code[i] == " ":',
-  '                        out.append(code[i])',
-  '                        i = i + 1',
-  '                    if i < len(code) and code[i] == "(":',
-  '                        i = parse_params(code, i, mapping, used, out)',
-  '                else:',
-  '                    while True:',
-  '                        nstart = i',
-  '                        while i < len(code) and is_name_char(code[i]):',
-  '                            i = i + 1',
-  '                        name = code[nstart:i]',
-  '                        if not name:',
-  '                            break',
-  '                        if name not in mapping:',
-  '                            mapping[name] = random_three(used)',
-  '                        out.append(mapping[name])',
-  '                        while i < len(code) and code[i] == " ":',
-  '                            out.append(code[i])',
-  '                            i = i + 1',
-  '                        if i < len(code) and code[i] == ",":',
-  '                            out.append(",")',
-  '                            i = i + 1',
-  '                            while i < len(code) and code[i] == " ":',
-  '                                out.append(code[i])',
-  '                                i = i + 1',
-  '                            continue',
-  '                        break',
-  '            elif word == "function":',
-  '                out.append(word)',
-  '                while i < len(code) and code[i] == " ":',
-  '                    out.append(code[i])',
-  '                    i = i + 1',
-  '                if i < len(code) and code[i] == "(":',
-  '                    i = parse_params(code, i, mapping, used, out)',
-  '                else:',
-  '                    fstart = i',
-  '                    while i < len(code) and is_name_char(code[i]):',
-  '                        i = i + 1',
-  '                    fname = code[fstart:i]',
-  '                    if fname:',
-  '                        if fname in mapping:',
-  '                            out.append(mapping[fname])',
-  '                        else:',
-  '                            out.append(fname)',
-  '                    while i < len(code) and code[i] in ".:":',
-  '                        out.append(code[i])',
-  '                        i = i + 1',
-  '                        while i < len(code) and code[i] == " ":',
-  '                            out.append(code[i])',
-  '                            i = i + 1',
-  '                        pstart = i',
-  '                        while i < len(code) and is_name_char(code[i]):',
-  '                            i = i + 1',
-  '                        out.append(code[pstart:i])',
-  '                    while i < len(code) and code[i] == " ":',
-  '                        out.append(code[i])',
-  '                        i = i + 1',
-  '                    if i < len(code) and code[i] == "(":',
-  '                        i = parse_params(code, i, mapping, used, out)',
-  '            elif word == "for":',
-  '                out.append(word)',
-  '                while i < len(code) and code[i] == " ":',
-  '                    out.append(code[i])',
-  '                    i = i + 1',
-  '                while True:',
-  '                    nstart = i',
-  '                    while i < len(code) and is_name_char(code[i]):',
-  '                        i = i + 1',
-  '                    name = code[nstart:i]',
-  '                    if not name:',
-  '                        break',
-  '                    if name not in mapping:',
-  '                        mapping[name] = random_three(used)',
-  '                    out.append(mapping[name])',
-  '                    while i < len(code) and code[i] == " ":',
-  '                        out.append(code[i])',
-  '                        i = i + 1',
-  '                    if i < len(code) and code[i] == ",":',
-  '                        out.append(",")',
-  '                        i = i + 1',
-  '                        while i < len(code) and code[i] == " ":',
-  '                            out.append(code[i])',
-  '                            i = i + 1',
-  '                        continue',
-  '                    if code[i:i + 2] == "in" and (i + 2 >= len(code) or not is_name_char(code[i + 2])):',
-  '                        out.append("in")',
-  '                        i = i + 2',
-  '                    break',
-  '            elif word in KEYWORDS:',
-  '                out.append(word)',
-  '            elif word in mapping:',
-  '                out.append(mapping[word])',
-  '            else:',
-  '                out.append(word)',
-  '        else:',
-  '            out.append(ch)',
-  '            i = i + 1',
-  '    return "".join(out)',
   'def encode_strings(code):',
   '    out = ""',
   '    i = 0',
@@ -773,7 +619,10 @@ const PY_ENGINE = [
   '                else:',
   '                    inner = inner + code[j]',
   '                    j = j + 1',
-  '            out = out + "_B91D(" + chr(34) + base91_encode(inner) + chr(34) + ")"',
+  '            key = generate_random_key()',
+  '            xored = xor_encrypt(inner, key)',
+  '            b91 = base91_encode(xored)',
+  '            out = out + "_XOR(" + chr(34) + b91 + chr(34) + "," + chr(34) + key + chr(34) + ")"',
   '            i = j + 1',
   '        elif code[i] == chr(39):',
   '            j = i + 1',
@@ -785,7 +634,10 @@ const PY_ENGINE = [
   '                else:',
   '                    inner = inner + code[j]',
   '                    j = j + 1',
-  '            out = out + "_B91D(" + chr(34) + base91_encode(inner) + chr(34) + ")"',
+  '            key = generate_random_key()',
+  '            xored = xor_encrypt(inner, key)',
+  '            b91 = base91_encode(xored)',
+  '            out = out + "_XOR(" + chr(34) + b91 + chr(34) + "," + chr(34) + key + chr(34) + ")"',
   '            i = j + 1',
   '        else:',
   '            out = out + code[i]',
@@ -802,18 +654,7 @@ const PY_ENGINE = [
   '    nl = chr(10)',
   '    pad_len = 500 + random.randrange(501)',
   '    safe_pad = make_pad_string(pad_len).replace(chr(34), "").replace(chr(39), "")',
-  '    pad = "local _pad = " + q + safe_pad + q + nl',
-  '    dummy = "local _dummy = {"',
-  '    for _i in range(1, 51):',
-  '        dummy = dummy + " _k" + str(_i) + " = " + str(random.randrange(100000))',
-  '        if _i < 50:',
-  '            dummy = dummy + ","',
-  '    dummy = dummy + " }" + nl',
-  '    junk_names = ["_AbC", "_DeF", "_GhI"]',
-  '    junk = ""',
-  '    for _i, _name in enumerate(junk_names):',
-  '        junk = junk + "local " + _name + " = function() return " + str(101 + _i) + " end" + nl',
-  '    return pad + dummy + junk',
+  '    return "local _pad = " + q + safe_pad + q + nl',
   'def split_one_per_line(body):',
   '    fixed = []',
   '    for line in body.split(chr(10)):',
@@ -851,49 +692,9 @@ const PY_ENGINE = [
   '    lines.append("end")',
   '    lines.append("end")',
   '    return chr(10).join(lines)',
-  'LUAU_LINES = []',
-  'LUAU_LINES.append("local _B91C = " + chr(34) + "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_-{|}~" + chr(39) + chr(34))',
-  'LUAU_LINES.append("local _B91M = {}")',
-  'LUAU_LINES.append("for _i = 1, #_B91C do")',
-  'LUAU_LINES.append("    _B91M[string.sub(_B91C, _i, _i)] = _i - 1")',
-  'LUAU_LINES.append("end")',
-  'LUAU_LINES.append("local function _B91D(s)")',
-  'LUAU_LINES.append("    local _v = -1")',
-  'LUAU_LINES.append("    local _b = 0")',
-  'LUAU_LINES.append("    local _n = 0")',
-  'LUAU_LINES.append("    local _o = {}")',
-  'LUAU_LINES.append("    for _i = 1, #s do")',
-  'LUAU_LINES.append("        local _p = _B91M[string.sub(s, _i, _i)]")',
-  'LUAU_LINES.append("        if _p then")',
-  'LUAU_LINES.append("            if _v < 0 then")',
-  'LUAU_LINES.append("                _v = _p")',
-  'LUAU_LINES.append("            else")',
-  'LUAU_LINES.append("                _v = _v + _p * 91")',
-  'LUAU_LINES.append("                _b = _b + _v * (2 ^ _n)")',
-  'LUAU_LINES.append("                if (_v % 8192) > 88 then")',
-  'LUAU_LINES.append("                    _n = _n + 13")',
-  'LUAU_LINES.append("                else")',
-  'LUAU_LINES.append("                    _n = _n + 14")',
-  'LUAU_LINES.append("                end")',
-  'LUAU_LINES.append("                while _n >= 8 do")',
-  'LUAU_LINES.append("                    table.insert(_o, string.char(_b % 256))")',
-  'LUAU_LINES.append("                    _b = math.floor(_b / 256)")',
-  'LUAU_LINES.append("                    _n = _n - 8")',
-  'LUAU_LINES.append("                end")',
-  'LUAU_LINES.append("                _v = -1")',
-  'LUAU_LINES.append("            end")',
-  'LUAU_LINES.append("        end")',
-  'LUAU_LINES.append("    end")',
-  'LUAU_LINES.append("    if _v >= 0 then")',
-  'LUAU_LINES.append("        table.insert(_o, string.char((_b + _v * (2 ^ _n)) % 256))")',
-  'LUAU_LINES.append("    end")',
-  'LUAU_LINES.append("    return table.concat(_o)")',
-  'LUAU_LINES.append("end")',
-  'LUAU_RUNTIME = chr(10).join(LUAU_LINES)',
   'def obfuscate(code):',
   '    cleaned = remove_comments(code)',
-  '    renamed = rename_vars(cleaned)',
-  '    encoded = encode_strings(renamed)',
+  '    encoded = encode_strings(cleaned)',
   '    minified = " ".join(encoded.split())',
   '    blocks = [("function", minified)]',
   '    flat = build_lph_cff(blocks)',
@@ -901,10 +702,10 @@ const PY_ENGINE = [
   '    tail = make_padding()',
   '    return LUAU_RUNTIME + chr(10) + chr(10) + head + flat + chr(10) + chr(10) + tail'
 ].join(String.fromCharCode(10));
+
 function obfuscate(code) {
   const cleaned = removeComments(code);
-  const renamed = renameVars(cleaned);
-  const encoded = encodeStrings(renamed);
+  const encoded = encodeStrings(cleaned);
   const parts = [];
   let current = "";
   for (const ch of encoded) {
@@ -927,6 +728,7 @@ function obfuscate(code) {
   const tail = makePadding();
   return LUAU_RUNTIME + String.fromCharCode(10) + String.fromCharCode(10) + head + flat + String.fromCharCode(10) + String.fromCharCode(10) + tail;
 }
+
 function byteLength(text) {
   return new TextEncoder().encode(text).length;
 }
