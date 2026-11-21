@@ -9,7 +9,7 @@
 <body>
 <header class="topbar">
 <div class="brand">
-<img src="icon.png" alt="icon">
+<img src="icon.png" alt="icon" onerror="this.style.display='none'">
 <div>
 <h1>luau-pro project</h1>
 <p>RAW - Copy to Your Editor</p>
@@ -39,6 +39,11 @@
 <section class="tab-panel" id="obfuscator">
 <h2>Obfuscator</h2>
 <p>Paste your Luau code below, then press Protect.</p>
+<div class="byte-stats">
+<div class="byte-stat"><span>Original bytes</span><strong id="origBytes">0</strong></div>
+<div class="byte-stat"><span>Protected bytes</span><strong id="protBytes">0</strong></div>
+<div class="byte-stat"><span>Bigger by</span><strong id="growPct">0%</strong></div>
+</div>
 <label for="inputCode">Luau Input</label>
 <textarea id="inputCode" placeholder="Paste your Luau code here..."></textarea>
 <div class="actions">
@@ -54,9 +59,10 @@
 <p>luau-pro project helps you prepare Luau code for sharing.</p>
 <ul>
 <li>Removes comments</li>
-<li>Renames local variables</li>
+<li>Renames local variables to 3 random letters</li>
 <li>Minifies whitespace</li>
 <li>Encodes readable strings</li>
+<li>Adds padding to increase bytes</li>
 </ul>
 </section>
 </main>
