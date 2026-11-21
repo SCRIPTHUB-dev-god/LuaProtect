@@ -6,6 +6,7 @@ body {
   background: #0d1117;
   color: #e6edf3;
   font-family: "Segoe UI", system-ui, sans-serif;
+  overflow-x: hidden;
 }
 .topbar {
   height: 72px;
@@ -38,18 +39,10 @@ body {
   border-radius: 8px;
   cursor: pointer;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 9px;
   flex-shrink: 0;
-}
-.hamburger span {
-  display: block;
-  height: 2px;
-  width: 100%;
-  background: #e6edf3;
-  border-radius: 2px;
+  color: #e6edf3;
 }
 .brand h1 {
   margin: 0;
@@ -65,18 +58,21 @@ body {
 .sidebar {
   position: fixed;
   top: 72px;
-  left: -33.33vw;
-  width: 33.33vw;
-  max-width: 380px;
+  right: -320px;
+  width: 320px;
+  max-width: 88vw;
   height: calc(100vh - 72px);
   background: #161b22;
-  border-right: 1px solid #30363d;
+  border-left: 1px solid #30363d;
   padding: 18px 12px;
-  transition: left 0.25s ease;
+  transition: right 0.25s ease;
   z-index: 20;
+  overflow-x: hidden;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 .sidebar.open {
-  left: 0;
+  right: 0;
 }
 .nav-item {
   width: 100%;
@@ -88,6 +84,9 @@ body {
   border-radius: 8px;
   cursor: pointer;
   font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 .nav-item:hover {
   background: #21262d;
@@ -101,6 +100,7 @@ body {
   max-width: 880px;
   margin: 0 auto;
   padding: 32px 20px 60px;
+  overflow-x: hidden;
 }
 .tab-panel {
   display: none;
@@ -135,6 +135,31 @@ body {
 .stat strong {
   display: block;
   margin-top: 8px;
+}
+.byte-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 18px 0 4px;
+}
+.byte-stat {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 14px;
+}
+.byte-stat span {
+  display: block;
+  color: #8b949e;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.byte-stat strong {
+  display: block;
+  margin-top: 6px;
+  color: #58a6ff;
+  font-size: 20px;
 }
 label {
   display: block;
@@ -232,7 +257,15 @@ button {
   .stat-grid {
     grid-template-columns: 1fr;
   }
+  .byte-stats {
+    grid-template-columns: 1fr;
+  }
   .brand h1 {
     font-size: 19px;
+  }
+  .sidebar {
+    width: 320px;
+    max-width: 88vw;
+    overflow-x: hidden;
   }
 }
