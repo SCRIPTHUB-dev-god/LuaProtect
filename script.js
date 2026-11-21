@@ -994,6 +994,12 @@ function toggleSidebar() {
   refreshIcons();
 }
 function showTab(tabName) {
+  document.querySelectorAll(".nav-item").forEach(function (item) {
+    item.classList.remove("active");
+  });
+  document.querySelectorAll(".tab-panel").forEach(function (panel) {
+    panel.classList.remove("active");
+  });
   navItems.forEach(function (item) {
     item.classList.toggle("active", item.dataset.tab === tabName);
   });
@@ -1045,5 +1051,8 @@ navItems.forEach(function (item) {
 protectBtn.addEventListener("click", protect);
 clearBtn.addEventListener("click", clearAll);
 copyBtn.addEventListener("click", copyOutput);
+document.addEventListener("DOMContentLoaded", function () {
+  refreshIcons();
+});
 refreshIcons();
 if (window.lucide) lucide.createIcons();
