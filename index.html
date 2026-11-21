@@ -9,7 +9,8 @@
 <body>
 <header class="topbar">
 <div class="brand">
-<img src="icon.png" alt="icon" onerror="this.style.display='none'">
+<div class="icon-fallback" id="iconFallback" aria-hidden="true">LP</div>
+<img src="icon.png" alt="icon" onerror="this.style.display='none';var f=document.getElementById('iconFallback');if(f){f.style.display='flex';}">
 <div>
 <h1>luau-pro project</h1>
 <p>RAW - Copy to Your Editor</p>
@@ -64,6 +65,20 @@
 <li>Encodes readable strings</li>
 <li>Adds padding to increase bytes</li>
 </ul>
+</section>
+<section class="bug-hunt" id="bug-hunt">
+<h2>UI BUG HUNT REPORT + TUTORIAL</h2>
+<p>Cara jadi Bug Hunter: 1. Buka DevTools F12, 2. Cek Console merah, 3. Cek Elements, 4. Cek Network untuk icon.png 404, 5. Cek Responsive mobile, 6. Klik semua button, 7. Coba Copy.</p>
+<ol>
+<li>[BUG #1] Hamburger kanan tidak ke-klik - Severity: High - Cara Nemu: Buka DevTools &gt; Inspect &gt; Klik hamburger &gt; Cek Console - Repro: 1. Buka halaman 2. Klik hamburger kanan 3. Sidebar tidak terbuka - Fix: .hamburger { width: 44px; height: 44px; z-index: 100; pointer-events: auto; }</li>
+<li>[BUG #2] Sidebar 1:3 overflow - Severity: High - Cara Nemu: Buka DevTools &gt; Toggle device toolbar &gt; Cek overflow-x - Repro: 1. Buka di mobile 2. Buka sidebar 3. Halaman bisa scroll ke kanan - Fix: .sidebar { box-sizing: border-box; min-width: 280px; max-width: 380px; } body { overflow-x: hidden; }</li>
+<li>[BUG #3] icon.png 404 - Severity: Medium - Cara Nemu: Buka DevTools &gt; Network &gt; Cari icon.png &gt; Cek status 404 - Repro: 1. Hapus icon.png 2. Reload 3. Alt text muncul dan title geser - Fix: onerror="this.style.display='none'" + fallback div icon LP.</li>
+<li>[BUG #4] Tab tidak pindah - Severity: High - Cara Nemu: Buka DevTools &gt; Elements &gt; Klik tab &gt; Cek class active - Repro: 1. Klik Obfuscator 2. Klik Information 3. Panel tidak berubah - Fix: querySelectorAll tab, remove active semua, add active ke yang diklik.</li>
+<li>[BUG #5] Copy button tidak copy - Severity: Medium - Cara Nemu: Buka DevTools &gt; Console &gt; Klik Copy &gt; Cek error clipboard - Repro: 1. Klik Copy Output 2. Paste 3. Tidak ada teks - Fix: fallback document.execCommand('copy') + textarea sementara.</li>
+<li>[BUG #6] Lucide icon tidak muncul - Severity: Medium - Cara Nemu: Buka DevTools &gt; Elements &gt; Cek tag i[data-lucide] belum diganti svg - Repro: 1. Reload 2. Cek ikon 3. Ikon kosong - Fix: panggil lucide.createIcons() di DOMContentLoaded + setelah tab switch.</li>
+<li>[BUG #7] Textarea / output tidak scroll - Severity: Medium - Cara Nemu: Buka DevTools &gt; Inspect &gt; Klik textarea &gt; Cek overflow - Repro: 1. Paste kode panjang 2. Scroll 3. Isi terpotong - Fix: textarea, .output-box { overflow: auto; min-height: 180px; resize: vertical; }</li>
+<li>[BUG #8] Header title kiri ketutup hamburger kanan - Severity: Medium - Cara Nemu: Buka DevTools &gt; Toggle device toolbar 390px &gt; Cek title - Repro: 1. Buka di layar kecil 2. Cek judul 3. Judul terpotong hamburger - Fix: .topbar { display: flex; justify-content: space-between; } .brand { flex: 1; } .hamburger { flex-shrink: 0; }</li>
+</ol>
 </section>
 </main>
 <script src="script.js"></script>
