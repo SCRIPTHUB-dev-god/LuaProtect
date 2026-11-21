@@ -514,7 +514,7 @@ lines.push("end");
 return lines.join(String.fromCharCode(10));
 }
 function randomOpcodes() {
-const mnems = ["halt", "pushs", "pushn", "pushnil", "pushtrue", "pushfalse", "load", "store", "add", "sub", "mul", "div", "concat", "eq", "ne", "lt", "gt", "le", "ge", "neg", "call", "jmp", "jz", "forinit", "forloop"];
+const mnems = ["halt", "pushs", "pushn", "pushnil", "pushtrue", "pushfalse", "load", "store", "add", "sub", "mul", "div", "concat", "eq", "ne", "lt", "gt", "le", "ge", "neg", "call", "jmp", "jz", "forinit", "forloop", "nop"];
 const used = {};
 const map = {};
 for (const m of mnems) {
@@ -526,6 +526,22 @@ used[v] = true;
 map[m] = v;
 }
 return map;
+}
+function dxEncrypt(plain, seed, idx) {
+let x = "";
+for (let i = 0; i < plain.length; i++) {
+const b = plain.charCodeAt(i);
+const k = seed.charCodeAt((i + idx * 13) % seed.length);
+x += String.fromCharCode(b ^ k);
+}
+return base91Encode(rot47(x));
+}
+function xorStr(s, key) {
+let o = "";
+for (let i = 0; i < s.length; i++) {
+o += String.fromCharCode(s.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+}
+return o;
 }
 function encryptCall(inner) {
 const key = generateRandomKey();
@@ -601,6 +617,7 @@ const consts = [];
 const slots = {};
 let slotCount = 0;
 const op = randomOpcodes();
+const seed = makePadString(10);
 function push() {
 const pc = bc.length + 1;
 for (let k = 0; k < arguments.length; k++) bc.push(arguments[k]);
@@ -610,11 +627,11 @@ function patch(operandPc, targetPc) {
 bc[operandPc - 1] = targetPc;
 }
 function constStr(s) {
-consts.push({ kind: "s", call: encryptCall(s) });
+consts.push({ kind: "s", blob: dxEncrypt(s, seed, consts.length + 1) });
 return consts.length;
 }
 function constNum(s) {
-consts.push({ kind: "n", call: encryptCall(s) });
+consts.push({ kind: "n", blob: dxEncrypt(s, seed, consts.length + 1) });
 return consts.length;
 }
 function slotOf(name) {
@@ -862,6 +879,15 @@ return;
 }
 throw new Error("unsupported statement near " + JSON.stringify(toks[p]));
 }
+function injectNoise() {
+push(op.pushnil);
+const jzPc = push(op.jz, 0);
+const jmpPc = push(op.jmp, 0);
+const label = bc.length + 1;
+push(op.nop);
+patch(jzPc + 1, label);
+patch(jmpPc + 1, bc.length + 1);
+}
 function parseBlock(stops) {
 while (true) {
 const t = toks[p];
@@ -871,66 +897,87 @@ parseStat();
 }
 }
 parseBlock([]);
+injectNoise();
+injectNoise();
 push(op.halt);
-return { bc: bc, consts: consts, opmap: op };
+const bPlain = bc.join(",");
+const oPlain = Object.keys(op).map(function (k) { return k + "=" + op[k]; }).join(",");
+const bBlob = dxEncrypt(bPlain, seed, 99);
+const oBlob = dxEncrypt(oPlain, seed, 7);
+const cBlobs = consts.map(function (ct) { return ct.blob; });
+const blob = bBlob + "|" + cBlobs.join("|") + "|" + oBlob;
+let hash = 0;
+for (let k = 0; k < blob.length; k++) hash = (hash * 31 + blob.charCodeAt(k)) % 9973;
+const seedX = base91Encode(xorStr(seed, String(hash)));
+return {
+bc: bc,
+consts: consts,
+opmap: op,
+seedX: seedX,
+bBlob: bBlob,
+oBlob: oBlob,
+hash: hash
+};
 }
 function emitVM(c) {
-const op = c.opmap;
 const nl = String.fromCharCode(10);
-let hash = 0;
-for (let k = 0; k < c.bc.length; k++) hash = (hash + c.bc[k]) % 9973;
-const constParts = c.consts.map(function (ct) {
-if (ct.kind === "s") return ct.call;
-return "tonumber(" + ct.call + ")";
-});
-const opEntries = Object.keys(op).map(function (k) { return k + " = " + op[k]; }).join(", ");
+const cBlobs = c.consts.map(function (ct) { return ct.blob; });
 const lines = [];
-lines.push("local _OP = { " + opEntries + " }");
-lines.push("local _C = { " + constParts.join(", ") + " }");
-lines.push("local _B = { " + c.bc.join(", ") + " }");
-lines.push("do");
-lines.push("local _ts = 0");
-lines.push("for _i = 1, 10 do _ts = _ts + _i * 7 end");
-lines.push("if _ts ~= 385 then while true do end end");
-lines.push("local _th = 0");
-lines.push("for _i = 1, #_B do _th = (_th + _B[_i]) % 9973 end");
-lines.push("if _th ~= " + hash + " then while true do end end");
-lines.push("end");
-lines.push("local _E = { np = _np }");
-lines.push("local _ST = {}");
-lines.push("local _SL = {}");
-lines.push("local function _run(_pc)");
-lines.push("while true do");
-lines.push("local _o = _B[_pc]");
-lines.push("if _o == _OP.halt then break end");
-lines.push("if _o == _OP.pushs then _ST[#_ST + 1] = _C[_B[_pc + 1]]; _pc = _pc + 2");
-lines.push("elseif _o == _OP.pushn then _ST[#_ST + 1] = _C[_B[_pc + 1]]; _pc = _pc + 2");
-lines.push("elseif _o == _OP.pushnil then _ST[#_ST + 1] = nil; _pc = _pc + 1");
-lines.push("elseif _o == _OP.pushtrue then _ST[#_ST + 1] = true; _pc = _pc + 1");
-lines.push("elseif _o == _OP.pushfalse then _ST[#_ST + 1] = false; _pc = _pc + 1");
-lines.push("elseif _o == _OP.load then _ST[#_ST + 1] = _SL[_B[_pc + 1]]; _pc = _pc + 2");
-lines.push("elseif _o == _OP.store then _SL[_B[_pc + 1]] = _ST[#_ST]; _ST[#_ST] = nil; _pc = _pc + 2");
-lines.push("elseif _o == _OP.add then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = _a + _b; _pc = _pc + 1");
-lines.push("elseif _o == _OP.sub then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = _a - _b; _pc = _pc + 1");
-lines.push("elseif _o == _OP.mul then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = _a * _b; _pc = _pc + 1");
-lines.push("elseif _o == _OP.div then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = _a / _b; _pc = _pc + 1");
-lines.push("elseif _o == _OP.concat then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = _a .. _b; _pc = _pc + 1");
-lines.push("elseif _o == _OP.eq then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = (_a == _b); _pc = _pc + 1");
-lines.push("elseif _o == _OP.ne then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = (_a ~= _b); _pc = _pc + 1");
-lines.push("elseif _o == _OP.lt then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = (_a < _b); _pc = _pc + 1");
-lines.push("elseif _o == _OP.gt then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = (_a > _b); _pc = _pc + 1");
-lines.push("elseif _o == _OP.le then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = (_a <= _b); _pc = _pc + 1");
-lines.push("elseif _o == _OP.ge then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = (_a >= _b); _pc = _pc + 1");
-lines.push("elseif _o == _OP.neg then local _a = table.remove(_ST); _ST[#_ST + 1] = -_a; _pc = _pc + 1");
-lines.push("elseif _o == _OP.call then local _n = _B[_pc + 1]; local _a = {}; for _k = _n, 1, -1 do _a[_k] = table.remove(_ST) end; _E.np(table.unpack(_a)); _pc = _pc + 2");
-lines.push("elseif _o == _OP.jmp then _pc = _B[_pc + 1]");
-lines.push("elseif _o == _OP.jz then local _v = table.remove(_ST); if not _v then _pc = _B[_pc + 1] else _pc = _pc + 2 end");
-lines.push("elseif _o == _OP.forinit then local _st = table.remove(_ST); local _lm = table.remove(_ST); local _sv = table.remove(_ST); _SL[_B[_pc + 1]] = _sv; _SL[_B[_pc + 2]] = _lm; _SL[_B[_pc + 3]] = _st; _pc = _pc + 4");
-lines.push("elseif _o == _OP.forloop then local _v = _SL[_B[_pc + 1]] + _SL[_B[_pc + 3]]; _SL[_B[_pc + 1]] = _v; local _lm = _SL[_B[_pc + 2]]; local _st = _SL[_B[_pc + 3]]; local _exit = _B[_pc + 4]; local _body = _B[_pc + 5]; if _st >= 0 then if _v > _lm then _pc = _exit else _pc = _body end else if _v < _lm then _pc = _exit else _pc = _body end end");
-lines.push("else break end");
-lines.push("end");
-lines.push("end");
-lines.push("_run(1)");
+lines.push('local _seedX = "' + c.seedX + '"');
+lines.push('local _bBlob = "' + c.bBlob + '"');
+lines.push('local _oBlob = "' + c.oBlob + '"');
+lines.push('local _cBlob = { ' + cBlobs.map(function (b) { return '"' + b + '"'; }).join(", ") + ' }');
+lines.push('local _hb = _bBlob .. "|" .. table.concat(_cBlob, "|") .. "|" .. _oBlob');
+lines.push('local _h = 0');
+lines.push('for _i = 1, #_hb do _h = (_h * 31 + string.byte(_hb, _i)) % 9973 end');
+lines.push('local _seed = _kxor(_B91D(_seedX), tostring(_h))');
+lines.push('local _oRaw = _DX(_oBlob, _seed, 7)');
+lines.push('local _OP = {}');
+lines.push('for _pair in string.gmatch(_oRaw, "[^,]+") do');
+lines.push('local _k, _v = string.match(_pair, "(%w+)=([0-9]+)")');
+lines.push('if _k then _OP[_k] = tonumber(_v) end');
+lines.push('end');
+lines.push('local _bRaw = _DX(_bBlob, _seed, 99)');
+lines.push('local _B = {}');
+lines.push('for _tok in string.gmatch(_bRaw, "[^,]+") do _B[#_B + 1] = tonumber(_tok) end');
+lines.push('local _C = {}');
+lines.push('for _i = 1, #_cBlob do _C[_i] = _DX(_cBlob[_i], _seed, _i) end');
+lines.push('local _E = { np = _np }');
+lines.push('local _ST = {}');
+lines.push('local _SL = {}');
+lines.push('local function _run(_pc)');
+lines.push('while true do');
+lines.push('local _o = _B[_pc]');
+lines.push('if _o == _OP.halt then break end');
+lines.push('if _o == _OP.pushs then _ST[#_ST + 1] = _C[_B[_pc + 1]]; _pc = _pc + 2');
+lines.push('elseif _o == _OP.pushn then _ST[#_ST + 1] = tonumber(_C[_B[_pc + 1]]); _pc = _pc + 2');
+lines.push('elseif _o == _OP.pushnil then _ST[#_ST + 1] = nil; _pc = _pc + 1');
+lines.push('elseif _o == _OP.pushtrue then _ST[#_ST + 1] = true; _pc = _pc + 1');
+lines.push('elseif _o == _OP.pushfalse then _ST[#_ST + 1] = false; _pc = _pc + 1');
+lines.push('elseif _o == _OP.load then _ST[#_ST + 1] = _SL[_B[_pc + 1]]; _pc = _pc + 2');
+lines.push('elseif _o == _OP.store then _SL[_B[_pc + 1]] = _ST[#_ST]; _ST[#_ST] = nil; _pc = _pc + 2');
+lines.push('elseif _o == _OP.add then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = _a + _b; _pc = _pc + 1');
+lines.push('elseif _o == _OP.sub then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = _a - _b; _pc = _pc + 1');
+lines.push('elseif _o == _OP.mul then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = _a * _b; _pc = _pc + 1');
+lines.push('elseif _o == _OP.div then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = _a / _b; _pc = _pc + 1');
+lines.push('elseif _o == _OP.concat then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = _a .. _b; _pc = _pc + 1');
+lines.push('elseif _o == _OP.eq then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = (_a == _b); _pc = _pc + 1');
+lines.push('elseif _o == _OP.ne then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = (_a ~= _b); _pc = _pc + 1');
+lines.push('elseif _o == _OP.lt then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = (_a < _b); _pc = _pc + 1');
+lines.push('elseif _o == _OP.gt then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = (_a > _b); _pc = _pc + 1');
+lines.push('elseif _o == _OP.le then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = (_a <= _b); _pc = _pc + 1');
+lines.push('elseif _o == _OP.ge then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = (_a >= _b); _pc = _pc + 1');
+lines.push('elseif _o == _OP.neg then local _a = table.remove(_ST); _ST[#_ST + 1] = -_a; _pc = _pc + 1');
+lines.push('elseif _o == _OP.call then local _n = _B[_pc + 1]; local _a = {}; for _k = _n, 1, -1 do _a[_k] = table.remove(_ST) end; _E.np(table.unpack(_a)); _pc = _pc + 2');
+lines.push('elseif _o == _OP.jmp then _pc = _B[_pc + 1]');
+lines.push('elseif _o == _OP.jz then local _v = table.remove(_ST); if not _v then _pc = _B[_pc + 1] else _pc = _pc + 2 end');
+lines.push('elseif _o == _OP.forinit then local _st = table.remove(_ST); local _lm = table.remove(_ST); local _sv = table.remove(_ST); _SL[_B[_pc + 1]] = _sv; _SL[_B[_pc + 2]] = _lm; _SL[_B[_pc + 3]] = _st; _pc = _pc + 4');
+lines.push('elseif _o == _OP.forloop then local _v = _SL[_B[_pc + 1]] + _SL[_B[_pc + 3]]; _SL[_B[_pc + 1]] = _v; local _lm = _SL[_B[_pc + 2]]; local _st = _SL[_B[_pc + 3]]; local _exit = _B[_pc + 4]; local _body = _B[_pc + 5]; if _st >= 0 then if _v > _lm then _pc = _exit else _pc = _body end else if _v < _lm then _pc = _exit else _pc = _body end end');
+lines.push('elseif _o == _OP.nop then _pc = _pc + 1');
+lines.push('else break end');
+lines.push('end');
+lines.push('end');
+lines.push('_run(1)');
 return LUAU_RUNTIME + nl + nl + lines.join(nl);
 }
 
@@ -1001,6 +1048,25 @@ const LUAU_RUNTIME = [
 '    end',
 '    return r',
 'end',
+'local function _kxor(data, key)',
+'    local res = {}',
+'    for _i = 1, #data do',
+'        local b = string.byte(data, _i)',
+'        local k = string.byte(key, ((_i - 1) % #key) + 1)',
+'        table.insert(res, string.char(_bxor(b, k)))',
+'    end',
+'    return table.concat(res)',
+'end',
+'local function _DX(data, seed, idx)',
+'    local decoded = _R47(_B91D(data))',
+'    local res = {}',
+'    for _i = 1, #decoded do',
+'        local b = string.byte(decoded, _i)',
+'        local k = string.byte(seed, ((_i - 1 + idx * 13) % #seed) + 1)',
+'        table.insert(res, string.char(_bxor(b, k)))',
+'    end',
+'    return table.concat(res)',
+'end',
 'local function _XOR(data, key)',
 '    local decoded = _R47(_B91D(data))',
 '    local res = {}',
@@ -1054,6 +1120,33 @@ const wrapped = "do" + String.fromCharCode(10) + flat + String.fromCharCode(10) 
 return LUAU_RUNTIME + String.fromCharCode(10) + String.fromCharCode(10) + wrapped;
 }
 
+function collapseLua(src) {
+const rawLines = src.split("\n");
+const lines = [];
+for (let k = 0; k < rawLines.length; k++) {
+const t = rawLines[k].replace(/\s+$/g, "");
+if (t.trim() !== "") lines.push(t.replace(/^\s+/, ""));
+}
+const cont = { then: 1, do: 1, else: 1, repeat: 1, "=": 1, "(": 1, ",": 1, "{": 1, ".": 1, "..": 1, "+": 1, "-": 1, "*": 1, "/": 1, "%": 1, "^": 1, "<": 1, ">": 1, "==": 1, "~=": 1, "<=": 1, ">=": 1, and: 1, or: 1, not: 1, return: 1, local: 1, function: 1, if: 1, while: 1, for: 1 };
+const out = [];
+for (let k = 0; k < lines.length; k++) {
+const line = lines[k];
+if (k === 0) {
+out.push(line);
+continue;
+}
+const prev = out[out.length - 1];
+const tokens = prev.trim().split(/\s+/);
+const last = tokens[tokens.length - 1];
+let keepNl = cont[last] === 1;
+if (/[=({,.+\-*/%^<>~]$/.test(prev.trim())) keepNl = true;
+if (/^(else|elseif|end|until)\b/.test(line)) keepNl = true;
+if (keepNl) out.push("\n" + line);
+else out.push(";" + line);
+}
+return out.join("");
+}
+
 const hamburger = document.getElementById("hamburger");
 const sidebar = document.getElementById("sidebar");
 const navItems = document.querySelectorAll(".nav-item");
@@ -1105,7 +1198,7 @@ if (!raw) {
 outputCode.textContent = "Paste Luau code first.";
 return;
 }
-const result = obfuscate(raw);
+const result = collapseLua(obfuscate(raw));
 outputCode.textContent = result;
 }
 function clearAll() {
