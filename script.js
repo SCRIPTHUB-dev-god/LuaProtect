@@ -876,7 +876,7 @@ const PY_ENGINE = [
   'LUAU_LINES.append("                    _n = _n + 14")',
   'LUAU_LINES.append("                end")',
   'LUAU_LINES.append("                while _n >= 8 do")',
-  'LUAU_LINES.append("                    table.insert(_o, string.char(_b % 256))",)',
+  'LUAU_LINES.append("                    table.insert(_o, string.char(_b % 256))")',
   'LUAU_LINES.append("                    _b = math.floor(_b / 256)")',
   'LUAU_LINES.append("                    _n = _n - 8")',
   'LUAU_LINES.append("                end")',
@@ -895,7 +895,7 @@ const PY_ENGINE = [
   '    renamed = rename_vars(cleaned)',
   '    encoded = encode_strings(renamed)',
   '    minified = " ".join(encoded.split())',
-  '    blocks = [("function", minified), ("do", "do" + chr(10) + minified + chr(10) + "end"), ("for", "for _i = 1, 1 do" + chr(10) + minified + chr(10) + "end")]',
+  '    blocks = [("function", minified)]',
   '    flat = build_lph_cff(blocks)',
   '    head = "local _big = " + chr(34) + make_pad_string(120) + chr(34) + chr(10)',
   '    tail = make_padding()',
@@ -921,7 +921,7 @@ function obfuscate(code) {
     parts.push(current);
   }
   const minified = parts.join(" ");
-  const blocks = [["function", minified], ["do", "do" + String.fromCharCode(10) + minified + String.fromCharCode(10) + "end"], ["for", "for _i = 1, 1 do" + String.fromCharCode(10) + minified + String.fromCharCode(10) + "end"]];
+  const blocks = [["function", minified]];
   const flat = cffLPH(blocks);
   const head = "local _big = " + String.fromCharCode(34) + makePadString(120) + String.fromCharCode(34) + String.fromCharCode(10);
   const tail = makePadding();
