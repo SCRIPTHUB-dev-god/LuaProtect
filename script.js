@@ -402,7 +402,6 @@ function splitOnePerLine(body) {
         break;
       }
       const after = rest.slice(hit + 2);
-      // PERBAIKAN BUG DISINI: Menambahkan escape regex backslash agar regex valid
       if (after.startsWith("local ") || /^[A-Za-z_][A-Za-z0-9_]*\s*\(/.test(after)) {
         fixed.push(rest.slice(0, hit + 1));
         rest = after;
@@ -825,7 +824,6 @@ const PY_ENGINE = [
   '                fixed.append(rest)',
   '                break',
   '            after = rest[hit + 2:]',
-  '            # PERBAIKAN BUG DISINI: Menambahkan escape regex backslash agar regex valid di Python',
   '            if after.startswith("local ") or (after and (after[0].isalpha() or after[0] == "_")):',
   '                fixed.append(rest[:hit + 1])',
   '                rest = after',
@@ -861,38 +859,37 @@ const PY_ENGINE = [
   'LUAU_LINES.append("end")',
   'LUAU_LINES.append("local function _B91D(s)")',
   'LUAU_LINES.append("    local _v = -1")',
-  'LUAU_LINES.append("    string.sub(s, _i, _i)")',
-  '    LUAU_LINES.append("    local _b = 0")',
-  '    LUAU_LINES.append("    local _n = 0")',
-  '    LUAU_LINES.append("    local _o = {}")',
-  '    LUAU_LINES.append("    for _i = 1, #s do")',
-  '    LUAU_LINES.append("        local _p = _B91M[string.sub(s, _i, _i)]")',
-  '    LUAU_LINES.append("        if _p then")',
-  '    LUAU_LINES.append("            if _v < 0 then")',
-  '    LUAU_LINES.append("                _v = _p")',
-  '    LUAU_LINES.append("            else")',
-  '    LUAU_LINES.append("                _v = _v + _p * 91")',
-  '    LUAU_LINES.append("                _b = _b + _v * (2 ^ _n)")',
-  '    LUAU_LINES.append("                if (_v % 8192) > 88 then")',
-  '    LUAU_LINES.append("                    _n = _n + 13")',
-  '    LUAU_LINES.append("                else")',
-  '    LUAU_LINES.append("                end")',
-  '    LUAU_LINES.append("                    _n = _n + 14")',
-  '    LUAU_LINES.append("                while _n >= 8 do")',
-  '    LUAU_LINES.append("                    table.insert(_o, string.char(_b % 256))")',
-  '    LUAU_LINES.append("                    _b = math.floor(_b / 256)")',
-  '    LUAU_LINES.append("                    _n = _n - 8")',
-  '    LUAU_LINES.append("                end")',
-  '    LUAU_LINES.append("                _v = -1")',
-  '    LUAU_LINES.append("            end")',
-  '    LUAU_LINES.append("end")',
-  '    LUAU_LINES.append("    end")',
-  '    LUAU_LINES.append("    if _v >= 0 then")',
-  '    LUAU_LINES.append("        table.insert(_o, string.char((_b + _v * (2 ^ _n)) % 256))")',
-  '    LUAU_LINES.append("    end")',
-  '    LUAU_LINES.append("    return table.concat(_o)")',
-  '    LUAU_LINES.append("end")',
-  '    LUAU_RUNTIME = chr(10).join(LUAU_LINES)',
+  'LUAU_LINES.append("    local _b = 0")',
+  'LUAU_LINES.append("    local _n = 0")',
+  'LUAU_LINES.append("    local _o = {}")',
+  'LUAU_LINES.append("    for _i = 1, #s do")',
+  'LUAU_LINES.append("        local _p = _B91M[string.sub(s, _i, _i)]")',
+  'LUAU_LINES.append("        if _p then")',
+  'LUAU_LINES.append("            if _v < 0 then")',
+  'LUAU_LINES.append("                _v = _p")',
+  'LUAU_LINES.append("            else")',
+  'LUAU_LINES.append("                _v = _v + _p * 91")',
+  'LUAU_LINES.append("                _b = _b + _v * (2 ^ _n)")',
+  'LUAU_LINES.append("                if (_v % 8192) > 88 then")',
+  'LUAU_LINES.append("                    _n = _n + 13")',
+  'LUAU_LINES.append("                else")',
+  'LUAU_LINES.append("                    _n = _n + 14")',
+  'LUAU_LINES.append("                end")',
+  'LUAU_LINES.append("                while _n >= 8 do")',
+  'LUAU_LINES.append("                    table.insert(_o, string.char(_b % 256))",)',
+  'LUAU_LINES.append("                    _b = math.floor(_b / 256)")',
+  'LUAU_LINES.append("                    _n = _n - 8")',
+  'LUAU_LINES.append("                end")',
+  'LUAU_LINES.append("                _v = -1")',
+  'LUAU_LINES.append("            end")',
+  'LUAU_LINES.append("        end")',
+  'LUAU_LINES.append("    end")',
+  'LUAU_LINES.append("    if _v >= 0 then")',
+  'LUAU_LINES.append("        table.insert(_o, string.char((_b + _v * (2 ^ _n)) % 256))")',
+  'LUAU_LINES.append("    end")',
+  'LUAU_LINES.append("    return table.concat(_o)")',
+  'LUAU_LINES.append("end")',
+  'LUAU_RUNTIME = chr(10).join(LUAU_LINES)',
   'def obfuscate(code):',
   '    cleaned = remove_comments(code)',
   '    renamed = rename_vars(cleaned)',
@@ -988,6 +985,7 @@ const protectBtn = document.getElementById("protectBtn");
 const clearBtn = document.getElementById("clearBtn");
 const copyBtn = document.getElementById("copyBtn");
 const showBrokenBtn = document.getElementById("showBrokenBtn");
+const sidebarOverlay = document.getElementById("sidebarOverlay");
 function refreshIcons() {
   if (window.lucide) {
     lucide.createIcons();
@@ -995,7 +993,13 @@ function refreshIcons() {
 }
 function toggleSidebar() {
   sidebar.classList.toggle("open");
+  if (sidebarOverlay) {
+    sidebarOverlay.classList.toggle("open");
+  }
   refreshIcons();
+}
+if (sidebarOverlay) {
+  sidebarOverlay.addEventListener("click", toggleSidebar);
 }
 function showBrokenMenu() {
   var brokenMenu = document.querySelector('.menu-broken');
@@ -1018,6 +1022,9 @@ function showTab(tabName) {
     panel.classList.toggle("active", panel.id === tabName);
   });
   sidebar.classList.remove("open");
+  if (sidebarOverlay) {
+    sidebarOverlay.classList.remove("open");
+  }
   refreshIcons();
 }
 async function protect() {
