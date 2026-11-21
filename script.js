@@ -534,7 +534,7 @@ const b = plain.charCodeAt(i);
 const k = seed.charCodeAt((i + idx * 13) % seed.length);
 x += String.fromCharCode(b ^ k);
 }
-return base91Encode(rot47(x));
+return rot47(x);
 }
 function xorStr(s, key) {
 let o = "";
@@ -548,6 +548,26 @@ const key = generateRandomKey();
 const r47 = rot47(xorEncrypt(inner, key));
 const b91 = base91Encode(r47);
 return '_XOR("' + b91 + '","' + key + '")';
+}
+const VM_MARK = "code in protection by lord-luau.vercel.app";
+function generateAlphaKey(n) {
+const az = "abcdefghijklmnopqrstuvwxyz";
+let s = "";
+for (let i = 0; i < n; i++) s += az.charAt(Math.floor(Math.random() * 26));
+return s;
+}
+function bfChecksum(key) {
+return key;
+}
+function luaDqEsc(s) {
+let o = '"';
+for (let i = 0; i < s.length; i++) o += "\\" + s.charCodeAt(i);
+return o + '"';
+}
+function flattenLua(src) {
+return src.replace(/\r\n?/g, "\n").split("\n").map(function (s) {
+return s.replace(/^\s+/, "").replace(/\s+$/, "");
+}).filter(function (s) { return s.length > 0; }).join(";").replace(/;{2,}/g, ";");
 }
 function tokenizeLua(src) {
 const toks = [];
@@ -905,43 +925,67 @@ const oPlain = Object.keys(op).map(function (k) { return k + "=" + op[k]; }).joi
 const bBlob = dxEncrypt(bPlain, seed, 99);
 const oBlob = dxEncrypt(oPlain, seed, 7);
 const cBlobs = consts.map(function (ct) { return ct.blob; });
-const blob = bBlob + "|" + cBlobs.join("|") + "|" + oBlob;
+const key12 = generateAlphaKey(12);
+const bfC = bfChecksum(key12);
+const kR = base91Encode(rot47(key12));
+const sep = String.fromCharCode(255);
+const innerPack = oBlob + sep + bBlob + sep + cBlobs.join(sep);
+const outerB = rot47(xorStr(innerPack, key12));
+const hb = VM_MARK + String.fromCharCode(31) + outerB;
 let hash = 0;
-for (let k = 0; k < blob.length; k++) hash = (hash * 31 + blob.charCodeAt(k)) % 9973;
-const seedX = base91Encode(xorStr(seed, String(hash)));
+for (let k = 0; k < hb.length; k++) hash = (hash * 31 + hb.charCodeAt(k)) % 9973;
+const seedX = xorStr(seed, String(hash));
 return {
 bc: bc,
 consts: consts,
 opmap: op,
+seed: seed,
 seedX: seedX,
 bBlob: bBlob,
 oBlob: oBlob,
+cBlobs: cBlobs,
+bfC: bfC,
+kR: kR,
+outerB: outerB,
 hash: hash
 };
 }
 function emitVM(c) {
 const nl = String.fromCharCode(10);
-const cBlobs = c.consts.map(function (ct) { return ct.blob; });
 const lines = [];
-lines.push('local _seedX = "' + c.seedX + '"');
-lines.push('local _bBlob = "' + c.bBlob + '"');
-lines.push('local _oBlob = "' + c.oBlob + '"');
-lines.push('local _cBlob = { ' + cBlobs.map(function (b) { return '"' + b + '"'; }).join(", ") + ' }');
-lines.push('local _hb = _bBlob .. "|" .. table.concat(_cBlob, "|") .. "|" .. _oBlob');
+lines.push('local _M0=[[' + VM_MARK + ']]');
+lines.push('_bfC = ' + luaDqEsc(c.bfC));
+lines.push('local _seedX = ' + luaDqEsc(c.seedX));
+lines.push('local _kR = "' + c.kR + '"');
+lines.push('local vm = ' + luaDqEsc(c.outerB));
+lines.push('local _vmLook = _lol(vm)');
+lines.push('local _hb = _M0 .. "\\31" .. vm');
 lines.push('local _h = 0');
-lines.push('for _i = 1, #_hb do _h = (_h * 31 + string.byte(_hb, _i)) % 9973 end');
-lines.push('local _seed = _kxor(_B91D(_seedX), tostring(_h))');
-lines.push('local _oRaw = _DX(_oBlob, _seed, 7)');
+lines.push('local _hi = 1');
+lines.push('while true do local _hbB = string.byte(_hb, _hi); if not _hbB then break end; _h = (_h * 31 + _hbB) % 9973; _hi = _hi + 1 end');
+lines.push('_k12 = _bfKey()');
+lines.push('local _seed = _kxor(_seedX, tostring(_h))');
+lines.push('if _k12 then');
+lines.push('local _ov = _kxor(_R47(vm), _k12)');
+lines.push('local _parts = {}');
+lines.push('for _seg in string.gmatch(_ov, "[^\\255]+") do _parts[#_parts + 1] = _seg end');
+lines.push('if #_parts < 3 then');
+lines.push('_np(_lolm(vm))');
+lines.push('else');
+lines.push('local _oRaw = _DX(_parts[1], _seed, 7)');
 lines.push('local _OP = {}');
 lines.push('for _pair in string.gmatch(_oRaw, "[^,]+") do');
 lines.push('local _k, _v = string.match(_pair, "(%w+)=([0-9]+)")');
 lines.push('if _k then _OP[_k] = tonumber(_v) end');
 lines.push('end');
-lines.push('local _bRaw = _DX(_bBlob, _seed, 99)');
+lines.push('local _bRaw = _DX(_parts[2], _seed, 99)');
 lines.push('local _B = {}');
 lines.push('for _tok in string.gmatch(_bRaw, "[^,]+") do _B[#_B + 1] = tonumber(_tok) end');
 lines.push('local _C = {}');
-lines.push('for _i = 1, #_cBlob do _C[_i] = _DX(_cBlob[_i], _seed, _i) end');
+lines.push('for _i = 3, #_parts do _C[_i - 2] = _DX(_parts[_i], _seed, _i - 2) end');
+lines.push('if _OP.halt == nil or _B[1] == nil then');
+lines.push('_np(_lolm(vm))');
+lines.push('else');
 lines.push('local _E = { np = _np }');
 lines.push('local _ST = {}');
 lines.push('local _SL = {}');
@@ -978,10 +1022,21 @@ lines.push('else break end');
 lines.push('end');
 lines.push('end');
 lines.push('_run(1)');
-return LUAU_RUNTIME + nl + nl + lines.join(nl);
+lines.push('end');
+lines.push('end');
+lines.push('else');
+lines.push('_np(_lolm(vm))');
+lines.push('end');
+return flattenLua(LUAU_RUNTIME + nl + lines.join(nl));
 }
 
 const LUAU_RUNTIME = [
+'local _bfC = ""',
+'local _k12 = ""',
+'local _mn = 0',
+'local _tv = 0',
+'if type(os) == "table" and os.time then _tv = os.time() end',
+'_mn = math.floor(_tv / 60)',
 'local _B91C = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_-{|}~" .. string.char(39)',
 'local _B91M = {}',
 'for _i = 1, #_B91C do',
@@ -1024,12 +1079,15 @@ const LUAU_RUNTIME = [
 'end',
 'local function _R47(s)',
 '    local _t = {}',
-'    for _i = 1, #s do',
+'    local _i = 1',
+'    while true do',
 '        local _b = string.byte(s, _i)',
+'        if not _b then break end',
 '        if _b >= 33 and _b <= 126 then',
 '            _b = 33 + ((_b - 33 + 47) % 94)',
 '        end',
 '        table.insert(_t, string.char(_b))',
+'        _i = _i + 1',
 '    end',
 '    return table.concat(_t)',
 'end',
@@ -1050,22 +1108,59 @@ const LUAU_RUNTIME = [
 'end',
 'local function _kxor(data, key)',
 '    local res = {}',
-'    for _i = 1, #data do',
+'    local _i = 1',
+'    while true do',
 '        local b = string.byte(data, _i)',
+'        if not b then break end',
 '        local k = string.byte(key, ((_i - 1) % #key) + 1)',
 '        table.insert(res, string.char(_bxor(b, k)))',
+'        _i = _i + 1',
 '    end',
 '    return table.concat(res)',
 'end',
 'local function _DX(data, seed, idx)',
-'    local decoded = _R47(_B91D(data))',
+'    local decoded = _R47(data)',
 '    local res = {}',
-'    for _i = 1, #decoded do',
+'    local _i = 1',
+'    while true do',
 '        local b = string.byte(decoded, _i)',
+'        if not b then break end',
 '        local k = string.byte(seed, ((_i - 1 + idx * 13) % #seed) + 1)',
 '        table.insert(res, string.char(_bxor(b, k)))',
+'        _i = _i + 1',
 '    end',
 '    return table.concat(res)',
+'end',
+'local function _lol(s)',
+'    local o = s:gsub(".", function(_c) return _R47(_c) end)',
+'    return o',
+'end',
+'local function _lolm(s)',
+'    local b = _lol(s)',
+'    return _kxor(b, "z" .. _mn)',
+'end',
+'local function _bfKey()',
+'    local k = {}',
+'    for _i = 1, 12 do',
+'        local _want = string.sub(_bfC, _i, _i)',
+'        for _c = 97, 122 do',
+'            if string.char(_c) == _want then',
+'                k[_i] = string.char(_c)',
+'                break',
+'            end',
+'        end',
+'        if not k[_i] then return nil end',
+'    end',
+'    return table.concat(k)',
+'end',
+'if type(task) == "table" and task.wait then',
+'    local _co = coroutine.create(function()',
+'        while true do',
+'            task.wait(60)',
+'            if type(os) == "table" and os.time then _mn = math.floor(os.time() / 60) end',
+'        end',
+'    end)',
+'    coroutine.resume(_co)',
 'end',
 'local function _XOR(data, key)',
 '    local decoded = _R47(_B91D(data))',
@@ -1117,34 +1212,12 @@ const minified = parts.join(" ");
 const blocks = [["function", minified]];
 const flat = cffLPH(blocks);
 const wrapped = "do" + String.fromCharCode(10) + flat + String.fromCharCode(10) + "end";
-return LUAU_RUNTIME + String.fromCharCode(10) + String.fromCharCode(10) + wrapped;
+const legacy = 'local _M0=[[' + VM_MARK + ']]' + String.fromCharCode(10) + LUAU_RUNTIME + String.fromCharCode(10) + String.fromCharCode(10) + wrapped;
+return flattenLua(legacy);
 }
 
 function collapseLua(src) {
-const rawLines = src.split("\n");
-const lines = [];
-for (let k = 0; k < rawLines.length; k++) {
-const t = rawLines[k].replace(/\s+$/g, "");
-if (t.trim() !== "") lines.push(t.replace(/^\s+/, ""));
-}
-const cont = { then: 1, do: 1, else: 1, repeat: 1, "=": 1, "(": 1, ",": 1, "{": 1, ".": 1, "..": 1, "+": 1, "-": 1, "*": 1, "/": 1, "%": 1, "^": 1, "<": 1, ">": 1, "==": 1, "~=": 1, "<=": 1, ">=": 1, and: 1, or: 1, not: 1, return: 1, local: 1, function: 1, if: 1, while: 1, for: 1 };
-const out = [];
-for (let k = 0; k < lines.length; k++) {
-const line = lines[k];
-if (k === 0) {
-out.push(line);
-continue;
-}
-const prev = out[out.length - 1];
-const tokens = prev.trim().split(/\s+/);
-const last = tokens[tokens.length - 1];
-let keepNl = cont[last] === 1;
-if (/[=({,.+\-*/%^<>~]$/.test(prev.trim())) keepNl = true;
-if (/^(else|elseif|end|until)\b/.test(line)) keepNl = true;
-if (keepNl) out.push("\n" + line);
-else out.push(";" + line);
-}
-return out.join("");
+return flattenLua(src);
 }
 
 const hamburger = document.getElementById("hamburger");
