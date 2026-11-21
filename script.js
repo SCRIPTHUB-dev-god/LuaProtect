@@ -438,7 +438,7 @@ break;
 i = i + w.length;
 while (i < n && (code[i] === " " || code[i] === "\n" || code[i] === "\t" || code[i] === "\r")) i++;
 const v = readWord(i);
-if (v && v !== "function") {
+if (v && v !== "function" && v.charAt(0) !== "_") {
 let k = i + v.length;
 while (k < n && (code[k] === " " || code[k] === "\t")) k++;
 if (code[k] === ",") {
@@ -573,7 +573,7 @@ s += Math.random().toString(36).slice(2, 12);
 return s.slice(0, length);
 }
 function makeJunkLines() {
-const count = (typeof globalThis !== "undefined" && typeof globalThis.__OBF_JUNK_COUNT === "number" && globalThis.__OBF_JUNK_COUNT >= 0) ? globalThis.__OBF_JUNK_COUNT : 15;
+const count = (typeof globalThis !== "undefined" && typeof globalThis.__OBF_JUNK_COUNT === "number" && globalThis.__OBF_JUNK_COUNT >= 0) ? globalThis.__OBF_JUNK_COUNT : 3;
 const usedJunk = {};
 const snippets = [];
 for (let k = 0; k < count; k++) {
@@ -596,21 +596,40 @@ snippets.push([
 "if false then _np(" + a + "()) end"
 ].join("\n"));
 }
-const lines = snippets.join("\n").split("\n");
-return lines.join("\n");
+return snippets;
 }
-function insertRandomly(text, junkText) {
+function insertRandomly(text, blocks) {
+// Insert each junk snippet as ONE unbroken multi-line block at its own
+// random index, in random block order. Only insertion points that are
+// safe statement boundaries are used, so a block can never land in the
+// middle of a multi-line expression (that would produce invalid Lua).
 const lines = text.split("\n");
-const junkLines = junkText.split("\n");
-const pos = [];
-for (let k = 0; k < junkLines.length; k++) {
-pos.push(Math.floor(Math.random() * (lines.length + 1)));
+const endsContinuation = /(and|or|\.\.|[-+*\/%^=,(]|\{)\s*$/;
+const startsContinuation = /^\s*(and|or|\.\.|[-+*\/%^),=]|then\b|do\b|else\b|elseif\b|end\b|until\b)/;
+const safePoints = [lines.length];
+for (let i = 0; i < lines.length; i++) {
+  if (i > 0 && endsContinuation.test(lines[i - 1])) continue;
+  if (i < lines.length && startsContinuation.test(lines[i])) continue;
+  safePoints.push(i);
 }
-pos.sort(function (a, b) { return a - b; });
-let jOffset = 0;
-for (let k = 0; k < junkLines.length; k++) {
-lines.splice(pos[k] + jOffset, 0, junkLines[k]);
-jOffset = jOffset + 1;
+const order = blocks.slice();
+for (let k = order.length - 1; k > 0; k--) {
+const r = Math.floor(Math.random() * (k + 1));
+const tmp = order[k];
+order[k] = order[r];
+order[r] = tmp;
+}
+for (const block of order) {
+const at = safePoints[Math.floor(Math.random() * safePoints.length)];
+lines.splice(at, 0, block);
+// recompute safe points after the shift
+safePoints.length = 0;
+safePoints.push(lines.length);
+for (let i = 1; i < lines.length; i++) {
+  if (endsContinuation.test(lines[i - 1])) continue;
+  if (startsContinuation.test(lines[i])) continue;
+  safePoints.push(i);
+}
 }
 return lines.join("\n");
 }
@@ -1334,9 +1353,9 @@ if (compiled && compiled.bc.length > 2) {
 body = emitVM(compiled);
 } else {
 const renamed = renameVars(printed);
-const proxied = proxifyLocals(renamed);
-const withJunk = insertRandomly(proxied, makeJunkLines());
-const encoded = encodeStrings(withJunk);
+const withJunk = insertRandomly(renamed, makeJunkLines());
+const proxied = proxifyLocals(withJunk);
+const encoded = encodeStrings(proxied);
 const parts = [];
 let current = "";
 for (const ch of encoded) {
