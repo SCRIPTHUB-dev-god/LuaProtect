@@ -287,11 +287,20 @@ let out = "";
 let i = 0;
 while (i < code.length) {
 if (code[i] === "-" && code[i + 1] === "-") {
-if (code[i + 2] === "[" && code[i + 3] === "[") {
-const j = code.indexOf("]]", i + 4);
-if (j < 0) break;
-i = j + 2;
+if (code[i + 2] === "[" && (code[i + 3] === "[" || code[i + 3] === "=")) {
+let lvl = 1;
+let j = i + 3;
+while (code[j] === "=") { lvl = lvl + 1; j = j + 1; }
+if (code[j] === "[") {
+const closeTok = "]" + "=".repeat(lvl - 1) + "]";
+const k = code.indexOf(closeTok, j + 1);
+if (k < 0) break;
+i = k + closeTok.length;
 out = out + "\n";
+} else {
+while (i < code.length && code[i] !== "\n") i = i + 1;
+out = out + "\n";
+}
 } else {
 while (i < code.length && code[i] !== "\n") i = i + 1;
 out = out + "\n";
@@ -1096,32 +1105,33 @@ const oBlob = dxEncrypt(oPlain, seed, 7);
 const cBlobs = consts.map(function (ct) { return ct.blob; });
 const key12 = generateAlphaKey(12);
 const bfC = bfChecksum(key12);
-const kR = base91Encode(rot47(key12));
 const sep = String.fromCharCode(255);
 const innerPack = oBlob + sep + bBlob + sep + cBlobs.join(sep);
-const outerB = base91Encode(rot47(innerPack));
-const hb = outerB;
+// vm pack: XOR(k12) -> rot47 -> base91; decoded on the Lua side with
+// _kxor(_R47(_B91D(vm)), _k12). No unused _kR side channel.
+const outerB = base91Encode(rot47(xorStr(innerPack, key12)));
+// hash must be identical on both sides: VM_MARK + \31 + vm
+const hb = VM_MARK + String.fromCharCode(31) + outerB;
 let hash = 0;
 for (let k = 0; k < hb.length; k++) hash = (hash * 31 + hb.charCodeAt(k)) % 9973;
 const seedX = xorStr(seed, String(hash));
-return { bc: bc, consts: consts, opmap: op, seed: seed, seedX: seedX, bBlob: bBlob, oBlob: oBlob, cBlobs: cBlobs, bfC: bfC, kR: kR, outerB: outerB, hash: hash };
+return { bc: bc, consts: consts, opmap: op, seed: seed, seedX: seedX, bBlob: bBlob, oBlob: oBlob, cBlobs: cBlobs, bfC: bfC, outerB: outerB, hash: hash };
 }
 function emitVM(c) {
 const nl = String.fromCharCode(10);
 const lines = [];
 lines.push('local vm = "' + c.outerB + '"');
-lines.push('local _bfC = ' + luaDqEsc(c.bfC));
 lines.push('local _seedX = ' + luaDqEsc(c.seedX));
-lines.push('local _kR = "' + c.kR + '"');
 lines.push('local _vmLook = _lol(vm)');
-lines.push('local _hb = vm');
+// hash input mirrors JS: VM_MARK .. \31 .. vm
+lines.push('local _hb = "' + VM_MARK + '" .. string.char(31) .. vm');
 lines.push('local _h = 0');
 lines.push('local _hi = 1');
 lines.push('while true do local _hbB = string.byte(_hb, _hi); if not _hbB then break end; _h = (_h * 31 + _hbB) % 9973; _hi = _hi + 1 end');
-lines.push('_k12 = _bfKey()');
+lines.push('local _k12 = _bfKey()');
 lines.push('local _seed = _kxor(_seedX, tostring(_h))');
 lines.push('if _k12 then');
-lines.push('local _ov = _R47(_B91D(vm))');
+lines.push('local _ov = _kxor(_R47(_B91D(vm)), _k12)');
 lines.push('local _parts = {}');
 lines.push('for _seg in string.gmatch(_ov, "[^\\255]+") do _parts[#_parts + 1] = _seg end');
 lines.push('if #_parts < 3 then');
@@ -1182,11 +1192,11 @@ lines.push('end');
 lines.push('else');
 lines.push('_np(_lolm(vm))');
 lines.push('end');
-return flattenLua(LUAU_RUNTIME + nl + lines.join(nl));
+// _bfC must be declared BEFORE local function _bfKey so _bfKey closes
+// over the upvalue instead of a nil global.
+return flattenLua('local _bfC = ' + luaDqEsc(c.bfC) + nl + LUAU_RUNTIME + nl + lines.join(nl));
 }
 const LUAU_RUNTIME = [
-'local _bfC = ""',
-'local _k12 = ""',
 'local _mn = 0',
 'local _tv = 0',
 'if type(os) == "table" and os.time then _tv = os.time() end',
@@ -1336,10 +1346,11 @@ const LUAU_RUNTIME = [
 'end'
 ].join(String.fromCharCode(10));
 function wrapHeader(body) {
-// no trailing "()" : s:gsub() returns the (string, count) pair, so calling
-// its first result would raise "attempt to call a string value".
-// The callback body already executes during the gsub call itself.
-return '([[\n code in protection by lord-luau.vercel.app v1.0 \n]]):gsub(".+", function() local _R = (function()\n' + body + '\nend)() end)';
+// no trailing "()" and no dead _R local: s:gsub() returns (string, count),
+// calling its first result raises "attempt to call a string value".
+// The callback body already executes during the gsub call itself, and the
+// inner IIFE is invoked purely for its side effect.
+return '([[\n code in protection by lord-luau.vercel.app v1.0 \n]]):gsub(".+", function() (function()\n' + body + '\nend)() end)';
 }
 function obfuscate(code) {
 const prepped = splitLoadstring(code);
