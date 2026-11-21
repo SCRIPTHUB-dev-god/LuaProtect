@@ -3,18 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>luau pro — Advanced Luau Obfuscator & Execution Inspector</title>
+<title>luau pro — Stark Monochromatic Luau Compiler</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="ambient-glow"></div>
 <header class="topbar">
 <div class="brand">
 <div class="icon-fallback" id="iconFallback" aria-hidden="true">LP</div>
 <img src="icon.png" alt="icon" onerror="this.style.display='none';var f=document.getElementById('iconFallback');if(f){f.style.display='flex';}">
 <div>
 <h1>luau pro</h1>
-<p>Execution Shield & Streamlined Compiler</p>
+<p>Stark Monochromatic Environment</p>
 </div>
 </div>
 <button class="hamburger" id="hamburger" aria-label="Toggle menu">
@@ -32,19 +31,19 @@
 <main class="main">
 <section class="tab-panel active" id="dashboard">
 <div class="hero-card">
-<span class="badge">SECURE RUNTIME v2.4</span>
-<h2>Enterprise Luau Protection</h2>
-<p>Deploy zero-overhead protection with individual XOR string masking, env proxy loggers, and flattening architecture. Built for high-performance script delivery.</p>
+<span class="badge">SYSTEM STATUS: READY</span>
+<h2>Pure Monochromatic Build</h2>
+<p>High-contrast, zero-distraction development engine featuring string masking via XOR and flat control flow dispatching.</p>
 </div>
 <div class="stat-grid">
 <div class="stat"><span>Encryption</span><strong>XOR + Base91</strong></div>
-<div class="stat"><span>Analysis</span><strong>Env Proxy Logger</strong></div>
-<div class="stat"><span>Environment</span><strong>100% Client-Side</strong></div>
+<div class="stat"><span>Architecture</span><strong>Control Flow Flattening</strong></div>
+<div class="stat"><span>Runtime</span><strong>Client-Side Local</strong></div>
 </div>
 </section>
 <section class="tab-panel" id="obfuscator">
 <h2>Obfuscator Console</h2>
-<p class="section-desc">Input your target Luau payload below to execute transformation and byte optimization.</p>
+<p class="section-desc">Input clean Luau script below to compile and protect.</p>
 <div class="byte-stats">
 <div class="byte-stat"><span>Original bytes</span><strong id="origBytes">0</strong></div>
 <div class="byte-stat"><span>Protected bytes</span><strong id="protBytes">0</strong></div>
@@ -65,13 +64,12 @@
 <button id="copyBtn"><i data-lucide="copy"></i>Copy Protected Output</button>
 </section>
 <section class="tab-panel" id="information">
-<h2>Documentation & Architecture</h2>
-<p>Reference guide for compiled protection metrics:</p>
+<h2>Documentation & Specs</h2>
+<p>Technical reference on code transformation rules:</p>
 <ul class="doc-list">
-<li><strong>String Encryption:</strong> Multi-key dynamic XOR shifts with Base91 encoding masks.</li>
-<li><strong>Env Logger Hook:</strong> Metatable proxy interception for global state auditing (`_G`).</li>
-<li><strong>Control Flow Flattening:</strong> Monolithic dispatchers to resist static control flow analysis.</li>
-<li><strong>Byte Padding:</strong> Randomized structural fillers to disrupt pattern matching signatures.</li>
+<li><strong>No-VM XOR:</strong> Eliminates heavyweight virtual machine interpreters in favor of direct fast-path decryption functions.</li>
+<li><strong>Signature Padding:</strong> Injects randomized noise structures (`_pad`) to shift byte footprints.</li>
+<li><strong>Variable Renaming:</strong> Sanitizes local names down to 3-character random keys.</li>
 </ul>
 </section>
 </main>
