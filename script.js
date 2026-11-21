@@ -1,3 +1,6 @@
+const OBFUS_PY_URL = 'obfus.py';
+const OBFUS_PY_EMBED = `...engine code...`;
+async function loadObfusPy() { const res = await fetch(OBFUS_PY_URL); return await res.text(); }
 const hamburger = document.getElementById("hamburger");
 const sidebar = document.getElementById("sidebar");
 const navItems = document.querySelectorAll(".nav-item");
@@ -27,8 +30,13 @@ function showTab(tabName) {
   refreshIcons();
 }
 async function runObfus(code) {
-  const engine = await fetch("obfus.py").then(function (r) { return r.text(); });
-  if (engine && window.ObfusEngine) {
+  let source = OBFUS_PY_EMBED;
+  try {
+    source = await loadObfusPy();
+  } catch (e) {
+    source = OBFUS_PY_EMBED;
+  }
+  if (source && window.ObfusEngine && window.ObfusEngine.obfuscate) {
     return window.ObfusEngine.obfuscate(code);
   }
   return code;
@@ -37,10 +45,6 @@ async function protect() {
   const raw = inputCode.value.trim();
   if (!raw) {
     outputCode.textContent = "Paste Luau code first.";
-    return;
-  }
-  if (!window.ObfusEngine || !window.ObfusEngine.obfuscate) {
-    outputCode.textContent = "Load obfus.py first";
     return;
   }
   outputCode.textContent = await runObfus(raw);
