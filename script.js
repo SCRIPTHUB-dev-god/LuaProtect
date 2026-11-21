@@ -445,6 +445,7 @@ function cffLPH(blocks) {
   lines.push("end");
   return lines.join(String.fromCharCode(10));
 }
+
 const LUAU_RUNTIME = [
   'local _B91C = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_-{|}~" .. string.char(39)',
   'local _B91M = {}',
@@ -492,32 +493,9 @@ const LUAU_RUNTIME = [
   '        table.insert(res, string.char(bit32 and bit32.bxor(b, k) or (b ~ k)))',
   '    end',
   '    return table.concat(res)',
-  'end',
-  'local _ENABLE_LOGGER = false',
-  'if _ENABLE_LOGGER then',
-  '    local logBuffer = {}',
-  '    local function record(action, name, val)',
-  '        table.insert(logBuffer, string.format("[%s] %s -> %s", action, tostring(name), tostring(val)))',
-  '    end',
-  '    local envProxy = setmetatable({}, {',
-  '        __index = function(_, k)',
-  '            record("GET", k, rawget(_G, k))',
-  '            local v = rawget(_G, k)',
-  '            if type(v) == "function" then',
-  '                return function(...)',
-  '                    record("CALL", k, select("#", ...))',
-  '                    return v(...)',
-  '                end',
-  '            end',
-  '            return v',
-  '        end,',
-  '        __newindex = function(_, k, v)',
-  '            record("SET", k, v)',
-  '            rawset(_G, k, v)',
-  '        end',
-  '    })',
   'end'
 ].join(String.fromCharCode(10));
+
 const PY_ENGINE = [
   'import random',
   'import string',
@@ -782,6 +760,8 @@ function refreshIcons() {
     lucide.createIcons();
   }
 }
+
+// PERBAIKAN BUG INTERAKSI SIDEBAR & HAMBURGER
 function toggleSidebar() {
   sidebar.classList.toggle("open");
   if (sidebarOverlay) {
@@ -789,9 +769,11 @@ function toggleSidebar() {
   }
   refreshIcons();
 }
+
 if (sidebarOverlay) {
   sidebarOverlay.addEventListener("click", toggleSidebar);
 }
+
 function showTab(tabName) {
   document.querySelectorAll(".nav-item").forEach(function (item) {
     item.classList.remove("active");
@@ -811,6 +793,7 @@ function showTab(tabName) {
   }
   refreshIcons();
 }
+
 async function protect() {
   const raw = inputCode.value.trim();
   if (!raw) {
@@ -822,12 +805,14 @@ async function protect() {
   outputCode.textContent = result;
   updateStats(raw, result);
 }
+
 function clearAll() {
   inputCode.value = "";
   outputCode.textContent = "Waiting for input stream...";
   updateStats("", "");
   inputCode.focus();
 }
+
 function copyOutput() {
   const text = outputCode.textContent || "";
   const area = document.createElement("textarea");
@@ -844,15 +829,21 @@ function copyOutput() {
     copyBtn.textContent = "Copy Protected Output";
   }, 1200);
 }
-hamburger.addEventListener("click", toggleSidebar);
+
+if (hamburger) {
+  hamburger.addEventListener("click", toggleSidebar);
+}
+
 navItems.forEach(function (item) {
   item.addEventListener("click", function () {
     showTab(item.dataset.tab);
   });
 });
-protectBtn.addEventListener("click", protect);
-clearBtn.addEventListener("click", clearAll);
-copyBtn.addEventListener("click", copyOutput);
+
+if (protectBtn) protectBtn.addEventListener("click", protect);
+if (clearBtn) clearBtn.addEventListener("click", clearAll);
+if (copyBtn) copyBtn.addEventListener("click", copyOutput);
+
 document.addEventListener("DOMContentLoaded", function () {
   refreshIcons();
 });
