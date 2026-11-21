@@ -390,6 +390,29 @@ function makePadding() {
   }
   return pad + dummy + junk;
 }
+function splitOnePerLine(body) {
+  const fixed = [];
+  const parts = body.split(String.fromCharCode(10));
+  for (const line of parts) {
+    let rest = line;
+    while (true) {
+      const hit = rest.indexOf(") ");
+      if (hit < 0) {
+        fixed.push(rest);
+        break;
+      }
+      const after = rest.slice(hit + 2);
+      if (after.startsWith("local ") || /^[A-Za-z_][A-Za-z0-9_]*s*(/.test(after)) {
+        fixed.push(rest.slice(0, hit + 1));
+        rest = after;
+      } else {
+        fixed.push(rest);
+        break;
+      }
+    }
+  }
+  return fixed;
+}
 function cffLPH(blocks) {
   const lines = [];
   lines.push("local _LPH = 1");
@@ -397,11 +420,11 @@ function cffLPH(blocks) {
   lines.push("if _LPH == 0 then");
   lines.push("break");
   for (let index = 0; index < blocks.length; index++) {
-    const kind = blocks[index][0];
     const body = blocks[index][1];
     lines.push("elseif _LPH == " + (index + 1) + " then");
-    lines.push("local _KIND = " + String.fromCharCode(34) + kind + String.fromCharCode(34));
-    lines.push(body);
+    for (const line of splitOnePerLine(body)) {
+      lines.push(line);
+    }
     if (index + 1 < blocks.length) {
       lines.push("_LPH = " + (index + 2));
     } else {
@@ -451,20 +474,6 @@ const LUAU_RUNTIME = [
   "        table.insert(_o, string.char((_b + _v * (2 ^ _n)) % 256))",
   "    end",
   "    return table.concat(_o)",
-  "end",
-  "local _LPH = 1",
-  "while true do",
-  "    if _LPH == 0 then",
-  "        break",
-  "    elseif _LPH == 1 then",
-  "        _LPH = 2",
-  "    elseif _LPH == 2 then",
-  "        _LPH = 3",
-  "    elseif _LPH == 3 then",
-  "        _LPH = 0",
-  "    else",
-  "        _LPH = 0",
-  "    end",
   "end"
 ].join(String.fromCharCode(10));
 const PY_ENGINE = [
@@ -805,6 +814,23 @@ const PY_ENGINE = [
   '    for _i, _name in enumerate(junk_names):',
   '        junk = junk + "local " + _name + " = function() return " + str(101 + _i) + " end" + nl',
   '    return pad + dummy + junk',
+  'def split_one_per_line(body):',
+  '    fixed = []',
+  '    for line in body.split(chr(10)):',
+  '        rest = line',
+  '        while True:',
+  '            hit = rest.find(") ")',
+  '            if hit < 0:',
+  '                fixed.append(rest)',
+  '                break',
+  '            after = rest[hit + 2:]',
+  '            if after.startswith("local ") or (after and (after[0].isalpha() or after[0] == "_")):',
+  '                fixed.append(rest[:hit + 1])',
+  '                rest = after',
+  '            else:',
+  '                fixed.append(rest)',
+  '                break',
+  '    return fixed',
   'def build_lph_cff(blocks):',
   '    lines = []',
   '    lines.append("local _LPH = 1")',
@@ -812,11 +838,10 @@ const PY_ENGINE = [
   '    lines.append("if _LPH == 0 then")',
   '    lines.append("break")',
   '    for index, block in enumerate(blocks):',
-  '        kind = block[0]',
   '        body = block[1]',
   '        lines.append("elseif _LPH == " + str(index + 1) + " then")',
-  '        lines.append("local _KIND = " + chr(34) + kind + chr(34))',
-  '        lines.append(body)',
+  '        for line in split_one_per_line(body):',
+  '            lines.append(line)',
   '        if index + 1 < len(blocks):',
   '            lines.append("_LPH = " + str(index + 2))',
   '        else:',
@@ -864,31 +889,17 @@ const PY_ENGINE = [
   'LUAU_LINES.append("    end")',
   'LUAU_LINES.append("    return table.concat(_o)")',
   'LUAU_LINES.append("end")',
-  'LUAU_LINES.append("local _LPH = 1")',
-  'LUAU_LINES.append("while true do")',
-  'LUAU_LINES.append("    if _LPH == 0 then")',
-  'LUAU_LINES.append("        break")',
-  'LUAU_LINES.append("    elseif _LPH == 1 then")',
-  'LUAU_LINES.append("        _LPH = 2")',
-  'LUAU_LINES.append("    elseif _LPH == 2 then")',
-  'LUAU_LINES.append("        _LPH = 3")',
-  'LUAU_LINES.append("    elseif _LPH == 3 then")',
-  'LUAU_LINES.append("        _LPH = 0")',
-  'LUAU_LINES.append("    else")',
-  'LUAU_LINES.append("        _LPH = 0")',
-  'LUAU_LINES.append("    end")',
-  'LUAU_LINES.append("end")',
   'LUAU_RUNTIME = chr(10).join(LUAU_LINES)',
   'def obfuscate(code):',
   '    cleaned = remove_comments(code)',
   '    renamed = rename_vars(cleaned)',
   '    encoded = encode_strings(renamed)',
   '    minified = " ".join(encoded.split())',
-  '    blocks = [("function", minified), ("do", "do " + minified + " end"), ("for", "for _i = 1, 1 do " + minified + " end")]',
+  '    blocks = [("function", minified), ("do", "do" + chr(10) + minified + chr(10) + "end"), ("for", "for _i = 1, 1 do" + chr(10) + minified + chr(10) + "end")]',
   '    flat = build_lph_cff(blocks)',
   '    head = "local _big = " + chr(34) + make_pad_string(120) + chr(34) + chr(10)',
   '    tail = make_padding()',
-  '    return head + flat + chr(10) + chr(10) + LUAU_RUNTIME + chr(10) + tail'
+  '    return LUAU_RUNTIME + chr(10) + chr(10) + head + flat + chr(10) + chr(10) + tail'
 ].join(String.fromCharCode(10));
 function obfuscate(code) {
   const cleaned = removeComments(code);
@@ -910,11 +921,11 @@ function obfuscate(code) {
     parts.push(current);
   }
   const minified = parts.join(" ");
-  const blocks = [["function", minified], ["do", "do " + minified + " end"], ["for", "for _i = 1, 1 do " + minified + " end"]];
+  const blocks = [["function", minified], ["do", "do" + String.fromCharCode(10) + minified + String.fromCharCode(10) + "end"], ["for", "for _i = 1, 1 do" + String.fromCharCode(10) + minified + String.fromCharCode(10) + "end"]];
   const flat = cffLPH(blocks);
   const head = "local _big = " + String.fromCharCode(34) + makePadString(120) + String.fromCharCode(34) + String.fromCharCode(10);
   const tail = makePadding();
-  return head + flat + String.fromCharCode(10) + String.fromCharCode(10) + LUAU_RUNTIME + String.fromCharCode(10) + tail;
+  return LUAU_RUNTIME + String.fromCharCode(10) + String.fromCharCode(10) + head + flat + String.fromCharCode(10) + String.fromCharCode(10) + tail;
 }
 function byteLength(text) {
   return new TextEncoder().encode(text).length;
