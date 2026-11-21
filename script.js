@@ -439,15 +439,6 @@ function obfuscate(code) {
   cleaned += "\n" + makeJunkDoBlocks();
   const printed = replacePrint(cleaned);
   
-  const key12 = generateAlphaKey(12);
-  const r47Encoded = rot47(base91Encode(printed));
-  const outerB = base91Encode(rot47(xorEncrypt(printed, key12)));
-  
-  let hb = "code in protection by lord-luau.vercel.app\31" + outerB;
-  let hash = 0;
-  for (let k = 0; k < hb.length; k++) hash = (hash * 31 + hb.charCodeAt(k)) % 9973;
-  const seedX = xorEncrypt(generateAlphaKey(10), String(hash));
-  
   const header = `(([([[\ncode in protection by lord-luau.vercel.app v1.0\n]]):gsub(".+", function()\n`;
   const footer = `\nend))()`;
 
@@ -458,20 +449,58 @@ function collapseLua(src) {
   return flattenLua(src);
 }
 
+const hamburger = document.getElementById("hamburger");
+const sidebar = document.getElementById("sidebar");
+const navItems = document.querySelectorAll(".nav-item");
+const panels = document.querySelectorAll(".tab-panel");
 const inputCode = document.getElementById("inputCode");
 const outputCode = document.getElementById("outputCode");
 const protectBtn = document.getElementById("protectBtn");
 const clearBtn = document.getElementById("clearBtn");
 const copyBtn = document.getElementById("copyBtn");
+const sidebarOverlay = document.getElementById("sidebarOverlay");
 
-function protect() {
+function refreshIcons() {
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+}
+
+function toggleSidebar() {
+  sidebar.classList.toggle("open");
+  if (sidebarOverlay) {
+    sidebarOverlay.classList.toggle("open");
+  }
+  refreshIcons();
+}
+
+if (sidebarOverlay) {
+  sidebarOverlay.addEventListener("click", toggleSidebar);
+}
+
+function showTab(tabName) {
+  document.querySelectorAll(".nav-item").forEach(function (item) {
+    item.classList.remove("active");
+  });
+  document.querySelectorAll(".tab-panel").forEach(function (panel) {
+    panel.classList.remove("active");
+  });
+  navItems.forEach(function (item) {
+    item.classList.toggle("active", item.dataset.tab === tabName);
+  });
+  panels.forEach(function (panel) {
+    panel.classList.toggle("active", panel.id === tabName);
+  });
+  sidebar.classList.remove("open");
+  if (sidebarOverlay) {
+    sidebarOverlay.classList.remove("open");
+  }
+  refreshIcons();
+}
+
+async function protect() {
   const raw = inputCode.value.trim();
   if (!raw) {
-    if (raw.startsWith("http://") || raw.startsWith("https://")) {
-      const loadstringCode = `loadstring(game:HttpGet("${raw}"))()`;
-      outputCode.textContent = collapseLua(obfuscate(loadstringCode));
-      return;
-    }
     outputCode.textContent = "Paste Luau code or URL first.";
     return;
   }
@@ -508,6 +537,22 @@ function copyOutput() {
   }, 1200);
 }
 
+if (hamburger) {
+  hamburger.addEventListener("click", toggleSidebar);
+}
+
+navItems.forEach(function (item) {
+  item.addEventListener("click", function () {
+    showTab(item.dataset.tab);
+  });
+});
+
 if (protectBtn) protectBtn.addEventListener("click", protect);
 if (clearBtn) clearBtn.addEventListener("click", clearAll);
 if (copyBtn) copyBtn.addEventListener("click", copyOutput);
+
+document.addEventListener("DOMContentLoaded", function () {
+  refreshIcons();
+});
+
+refreshIcons();
