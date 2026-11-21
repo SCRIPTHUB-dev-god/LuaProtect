@@ -83,7 +83,7 @@ function generateRandomKey() {
   return key;
 }
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-const KEYWORDS = ["and", "break", "do", "else", "elseif", "end", "false", "for", "function", "goto", "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while"];
+const KEYWORDS = ["and", "break", "do", "else", "elseif", "end", "false", "for", "function", "goto", "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while", "print"];
 function randomThree(used) {
   while (true) {
     let name = "";
@@ -496,182 +496,11 @@ const LUAU_RUNTIME = [
   'end'
 ].join(String.fromCharCode(10));
 
-const PY_ENGINE = [
-  'import random',
-  'import string',
-  'B91_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_-{|}~" + chr(39)',
-  'B91_MAP = {}',
-  'for _i, _c in enumerate(B91_CHARS):',
-  '    B91_MAP[_c] = _i',
-  'def base91_encode(data):',
-  '    if isinstance(data, str):',
-  '        data = data.encode("utf-8")',
-  '    b = 0',
-  '    n = 0',
-  '    out = []',
-  '    for byte in data:',
-  '        b = b | (byte << n)',
-  '        n = n + 8',
-  '        if n > 13:',
-  '            v = b & 8191',
-  '            if v > 88:',
-  '                b = b >> 13',
-  '                n = n - 13',
-  '            else:',
-  '                v = b & 16383',
-  '                b = b >> 14',
-  '                n = n - 14',
-  '            out.append(B91_CHARS[v % 91])',
-  '            out.append(B91_CHARS[v // 91])',
-  '    if n > 0:',
-  '        out.append(B91_CHARS[b % 91])',
-  '        if n > 7 or b > 90:',
-  '            out.append(B91_CHARS[b // 91])',
-  '    return "".join(out)',
-  'def xor_encrypt(text, key):',
-  '    res = []',
-  '    for i, c in enumerate(text):',
-  '        res.append(chr(ord(c) ^ ord(key[i % len(key)])))',
-  '    return "".join(res)',
-  'def generate_random_key():',
-  '    return "".join(random.choices(string.ascii_letters + string.digits, k=4))',
-  'def remove_comments(code):',
-  '    result = ""',
-  '    i = 0',
-  '    while i < len(code):',
-  '        if code[i:i + 2] == "--":',
-  '            if code[i + 2:i + 4] == "[[":',
-  '                j = code.find("]]", i + 4)',
-  '                if j < 0:',
-  '                    break',
-  '                i = j + 2',
-  '                result = result + chr(10)',
-  '            else:',
-  '                while i < len(code) and code[i] != chr(10):',
-  '                    i = i + 1',
-  '                result = result + chr(10)',
-  '        elif code[i] == chr(34) or code[i] == chr(39):',
-  '            q = code[i]',
-  '            result = result + code[i]',
-  '            i = i + 1',
-  '            while i < len(code):',
-  '                result = result + code[i]',
-  '                if code[i] == q and code[i - 1] != chr(92):',
-  '                    i = i + 1',
-  '                    break',
-  '                i = i + 1',
-  '        elif code[i] == chr(91) and i + 1 < len(code) and code[i + 1] == chr(91):',
-  '            j = code.find("]]", i + 2)',
-  '            if j < 0:',
-  '                result = result + code[i:]',
-  '                break',
-  '            result = result + code[i:j + 2]',
-  '            i = j + 2',
-  '        else:',
-  '            result = result + code[i]',
-  '            i = i + 1',
-  '    return result',
-  'def encode_strings(code):',
-  '    out = ""',
-  '    i = 0',
-  '    while i < len(code):',
-  '        if code[i] == chr(34):',
-  '            j = i + 1',
-  '            inner = ""',
-  '            while j < len(code) and code[j] != chr(34):',
-  '                if code[j] == chr(92) and j + 1 < len(code):',
-  '                    inner = inner + code[j] + code[j + 1]',
-  '                    j = j + 2',
-  '                else:',
-  '                    inner = inner + code[j]',
-  '                    j = j + 1',
-  '            key = generate_random_key()',
-  '            xored = xor_encrypt(inner, key)',
-  '            b91 = base91_encode(xored)',
-  '            out = out + "_XOR(" + chr(34) + b91 + chr(34) + "," + chr(34) + key + chr(34) + ")"',
-  '            i = j + 1',
-  '        elif code[i] == chr(39):',
-  '            j = i + 1',
-  '            inner = ""',
-  '            while j < len(code) and code[j] != chr(39):',
-  '                if code[j] == chr(92) and j + 1 < len(code):',
-  '                    inner = inner + code[j] + code[j + 1]',
-  '                    j = j + 2',
-  '                else:',
-  '                    inner = inner + code[j]',
-  '                    j = j + 1',
-  '            key = generate_random_key()',
-  '            xored = xor_encrypt(inner, key)',
-  '            b91 = base91_encode(xored)',
-  '            out = out + "_XOR(" + chr(34) + b91 + chr(34) + "," + chr(34) + key + chr(34) + ")"',
-  '            i = j + 1',
-  '        else:',
-  '            out = out + code[i]',
-  '            i = i + 1',
-  '    return out',
-  'def make_pad_string(length):',
-  '    chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"',
-  '    s = ""',
-  '    for _i in range(length):',
-  '        s = s + chars[random.randrange(len(chars))]',
-  '    return s',
-  'def make_padding():',
-  '    q = chr(34)',
-  '    nl = chr(10)',
-  '    pad_len = 500 + random.randrange(501)',
-  '    safe_pad = make_pad_string(pad_len).replace(chr(34), "").replace(chr(39), "")',
-  '    return "local _pad = " + q + safe_pad + q + nl',
-  'def split_one_per_line(body):',
-  '    fixed = []',
-  '    for line in body.split(chr(10)):',
-  '        rest = line',
-  '        while True:',
-  '            hit = rest.find(") ")',
-  '            if hit < 0:',
-  '                fixed.append(rest)',
-  '                break',
-  '            after = rest[hit + 2:]',
-  '            if after.startswith("local ") or (after and (after[0].isalpha() or after[0] == "_")):',
-  '                fixed.append(rest[:hit + 1])',
-  '                rest = after',
-  '            else:',
-  '                fixed.append(rest)',
-  '                break',
-  '    return fixed',
-  'def build_lph_cff(blocks):',
-  '    lines = []',
-  '    lines.append("local _LPH = 1")',
-  '    lines.append("while true do")',
-  '    lines.append("if _LPH == 0 then")',
-  '    lines.append("break")',
-  '    for index, block in enumerate(blocks):',
-  '        body = block[1]',
-  '        lines.append("elseif _LPH == " + str(index + 1) + " then")',
-  '        for line in split_one_per_line(body):',
-  '            lines.append(line)',
-  '        if index + 1 < len(blocks):',
-  '            lines.append("_LPH = " + str(index + 2))',
-  '        else:',
-  '            lines.append("_LPH = 0")',
-  '    lines.append("else")',
-  '    lines.append("_LPH = 0")',
-  '    lines.append("end")',
-  '    lines.append("end")',
-  '    return chr(10).join(lines)',
-  'def obfuscate(code):',
-  '    cleaned = remove_comments(code)',
-  '    encoded = encode_strings(cleaned)',
-  '    minified = " ".join(encoded.split())',
-  '    blocks = [("function", minified)]',
-  '    flat = build_lph_cff(blocks)',
-  '    head = "local _big = " + chr(34) + make_pad_string(120) + chr(34) + chr(10)',
-  '    tail = make_padding()',
-  '    return LUAU_RUNTIME + chr(10) + chr(10) + head + flat + chr(10) + chr(10) + tail'
-].join(String.fromCharCode(10));
-
+// PANGGIL RENAMEVARS DI SINI AGAR VARIABEL DIUBAH MENJADI ACAK
 function obfuscate(code) {
   const cleaned = removeComments(code);
-  const encoded = encodeStrings(cleaned);
+  const renamed = renameVars(cleaned);
+  const encoded = encodeStrings(renamed);
   const parts = [];
   let current = "";
   for (const ch of encoded) {
@@ -695,55 +524,6 @@ function obfuscate(code) {
   return LUAU_RUNTIME + String.fromCharCode(10) + String.fromCharCode(10) + head + flat + String.fromCharCode(10) + String.fromCharCode(10) + tail;
 }
 
-function byteLength(text) {
-  return new TextEncoder().encode(text).length;
-}
-function updateStats(original, protectedText) {
-  const origEl = document.getElementById("origBytes");
-  const protEl = document.getElementById("protBytes");
-  const growEl = document.getElementById("growPct");
-  const orig = byteLength(original);
-  const prot = byteLength(protectedText);
-  let pct = 0;
-  if (orig > 0) {
-    pct = ((prot - orig) / orig) * 100;
-  }
-  if (origEl) {
-    origEl.textContent = String(orig);
-  }
-  if (protEl) {
-    protEl.textContent = String(prot);
-  }
-  if (growEl) {
-    growEl.textContent = String(Math.round(pct * 10) / 10) + "%";
-  }
-}
-async function importPy() {
-  if (!window.loadPyodide) {
-    return null;
-  }
-  try {
-    const pyodide = await window.loadPyodide();
-    pyodide.runPython(PY_ENGINE);
-    const obfuscatePy = pyodide.globals.get("obfuscate");
-    if (obfuscatePy) {
-      return obfuscatePy;
-    }
-  } catch (e) {
-  }
-  return null;
-}
-async function runObfus(code) {
-  const pyObfuscate = await importPy();
-  if (pyObfuscate) {
-    try {
-      return pyObfuscate(code);
-    } catch (e) {
-    }
-  }
-  return obfuscate(code);
-}
-
 const hamburger = document.getElementById("hamburger");
 const sidebar = document.getElementById("sidebar");
 const navItems = document.querySelectorAll(".nav-item");
@@ -760,8 +540,6 @@ function refreshIcons() {
     lucide.createIcons();
   }
 }
-
-// PERBAIKAN BUG INTERAKSI SIDEBAR & HAMBURGER
 function toggleSidebar() {
   sidebar.classList.toggle("open");
   if (sidebarOverlay) {
@@ -769,11 +547,9 @@ function toggleSidebar() {
   }
   refreshIcons();
 }
-
 if (sidebarOverlay) {
   sidebarOverlay.addEventListener("click", toggleSidebar);
 }
-
 function showTab(tabName) {
   document.querySelectorAll(".nav-item").forEach(function (item) {
     item.classList.remove("active");
@@ -793,26 +569,20 @@ function showTab(tabName) {
   }
   refreshIcons();
 }
-
 async function protect() {
   const raw = inputCode.value.trim();
   if (!raw) {
     outputCode.textContent = "Paste Luau code first.";
-    updateStats("", "");
     return;
   }
-  const result = await runObfus(raw);
+  const result = obfuscate(raw);
   outputCode.textContent = result;
-  updateStats(raw, result);
 }
-
 function clearAll() {
   inputCode.value = "";
   outputCode.textContent = "Waiting for input stream...";
-  updateStats("", "");
   inputCode.focus();
 }
-
 function copyOutput() {
   const text = outputCode.textContent || "";
   const area = document.createElement("textarea");
@@ -829,23 +599,18 @@ function copyOutput() {
     copyBtn.textContent = "Copy Protected Output";
   }, 1200);
 }
-
 if (hamburger) {
   hamburger.addEventListener("click", toggleSidebar);
 }
-
 navItems.forEach(function (item) {
   item.addEventListener("click", function () {
     showTab(item.dataset.tab);
   });
 });
-
 if (protectBtn) protectBtn.addEventListener("click", protect);
 if (clearBtn) clearBtn.addEventListener("click", clearAll);
 if (copyBtn) copyBtn.addEventListener("click", copyOutput);
-
 document.addEventListener("DOMContentLoaded", function () {
   refreshIcons();
 });
 refreshIcons();
-if (window.lucide) lucide.createIcons();
