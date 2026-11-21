@@ -8,8 +8,14 @@ const protectBtn = document.getElementById("protectBtn");
 const clearBtn = document.getElementById("clearBtn");
 const copyBtn = document.getElementById("copyBtn");
 let counter = 0;
+function refreshIcons() {
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+}
 function toggleSidebar() {
   sidebar.classList.toggle("open");
+  refreshIcons();
 }
 function showTab(tabName) {
   navItems.forEach(function (item) {
@@ -19,6 +25,7 @@ function showTab(tabName) {
     panel.classList.toggle("active", panel.id === tabName);
   });
   sidebar.classList.remove("open");
+  refreshIcons();
 }
 function removeComments(code) {
   let result = "";
@@ -98,3 +105,5 @@ navItems.forEach(function (item) {
 protectBtn.addEventListener("click", protect);
 clearBtn.addEventListener("click", clearAll);
 copyBtn.addEventListener("click", copyOutput);
+refreshIcons();
+if (window.lucide) lucide.createIcons();
