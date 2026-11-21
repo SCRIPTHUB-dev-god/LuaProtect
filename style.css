@@ -184,6 +184,38 @@ ul {
   color: #8b949e;
   line-height: 2;
 }
+.lucide {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.sidebar .lucide {
+  width: 18px;
+  height: 18px;
+  margin-right: 10px;
+  color: #8b949e;
+}
+.sidebar .nav-item.active .lucide {
+  color: #58a6ff;
+}
+.topbar .lucide {
+  width: 20px;
+  height: 20px;
+  color: #e6edf3;
+}
+.actions .lucide,
+#copyBtn .lucide {
+  width: 16px;
+  height: 16px;
+  margin-right: 7px;
+}
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 @media (max-width: 640px) {
   .stat-grid {
     grid-template-columns: 1fr;
