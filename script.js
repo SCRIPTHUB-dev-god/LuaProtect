@@ -456,13 +456,6 @@ s = s + chars.charAt(Math.floor(Math.random() * chars.length));
 }
 return s;
 }
-function makePadding() {
-const q = String.fromCharCode(34);
-const nl = String.fromCharCode(10);
-const padLen = 500 + Math.floor(Math.random() * 501);
-const safePad = makePadString(padLen).replace(/["']/g, "");
-return "local pad = " + q + safePad + q + nl;
-}
 function makeJunkDoBlocks() {
 const count = 2 + Math.floor(Math.random() * 2);
 let out = "";
@@ -612,10 +605,8 @@ parts.push(current);
 const minified = parts.join(" ");
 const blocks = [["function", minified]];
 const flat = cffLPH(blocks);
-const head = "local _big = " + String.fromCharCode(34) + makePadString(120) + String.fromCharCode(34) + String.fromCharCode(10);
 const wrapped = "do" + String.fromCharCode(10) + flat + String.fromCharCode(10) + "end";
-const tail = makePadding();
-return LUAU_RUNTIME + String.fromCharCode(10) + String.fromCharCode(10) + head + wrapped + String.fromCharCode(10) + String.fromCharCode(10) + tail;
+return LUAU_RUNTIME + String.fromCharCode(10) + String.fromCharCode(10) + wrapped;
 }
 
 const hamburger = document.getElementById("hamburger");
