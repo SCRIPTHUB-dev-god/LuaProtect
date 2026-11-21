@@ -9,9 +9,7 @@
 <body>
 <header class="topbar">
 <button class="hamburger" id="hamburger" aria-label="Toggle menu">
-<span></span>
-<span></span>
-<span></span>
+<i data-lucide="menu"></i>
 </button>
 <div class="brand">
 <h1>luau-pro project</h1>
@@ -20,9 +18,9 @@
 </header>
 <aside class="sidebar" id="sidebar">
 <nav>
-<button class="nav-item active" data-tab="dashboard">Dashboard</button>
-<button class="nav-item" data-tab="obfuscator">Obfuscator</button>
-<button class="nav-item" data-tab="information">Information</button>
+<button class="nav-item active" data-tab="dashboard"><i data-lucide="layout-dashboard"></i>Dashboard</button>
+<button class="nav-item" data-tab="obfuscator"><i data-lucide="shield"></i>Obfuscator</button>
+<button class="nav-item" data-tab="information"><i data-lucide="info"></i>Information</button>
 </nav>
 </aside>
 <main class="main">
@@ -41,12 +39,12 @@
 <label for="inputCode">Luau Input</label>
 <textarea id="inputCode" placeholder="Paste your Luau code here..."></textarea>
 <div class="actions">
-<button id="protectBtn">Protect</button>
-<button id="clearBtn">Clear</button>
+<button id="protectBtn"><i data-lucide="lock"></i>Protect</button>
+<button id="clearBtn"><i data-lucide="trash-2"></i>Clear</button>
 </div>
 <label for="outputCode">Protected Output</label>
 <div class="output-box" id="outputCode">Your protected code will appear here.</div>
-<button id="copyBtn">Copy Output</button>
+<button id="copyBtn"><i data-lucide="copy"></i>Copy Output</button>
 </section>
 <section class="tab-panel" id="information">
 <h2>Information</h2>
@@ -60,5 +58,7 @@
 </section>
 </main>
 <script src="script.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>lucide.createIcons()</script>
 </body>
 </html>
