@@ -66,6 +66,17 @@ function base91Decode(text) {
   }
   return new TextDecoder().decode(new Uint8Array(out));
 }
+function rot47(text) {
+  let res = "";
+  for (let i = 0; i < text.length; i++) {
+    let c = text.charCodeAt(i);
+    if (c >= 33 && c <= 126) {
+      c = 33 + ((c + 14) % 94);
+    }
+    res += String.fromCharCode(c);
+  }
+  return res;
+}
 function xorEncrypt(text, key) {
   let result = "";
   for (let i = 0; i < text.length; i++) {
@@ -77,7 +88,7 @@ function xorEncrypt(text, key) {
 function generateRandomKey() {
   const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let key = "";
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 6; i++) {
     key += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return key;
@@ -354,8 +365,9 @@ function encodeStrings(code) {
           j = j + 1;
         }
       }
+      const r47 = rot47(inner);
       const key = generateRandomKey();
-      const xored = xorEncrypt(inner, key);
+      const xored = xorEncrypt(r47, key);
       const b91 = base91Encode(xored);
       out = out + "_XOR(" + String.fromCharCode(34) + b91 + String.fromCharCode(34) + "," + String.fromCharCode(34) + key + String.fromCharCode(34) + ")";
       i = j + 1;
@@ -371,8 +383,9 @@ function encodeStrings(code) {
           j = j + 1;
         }
       }
+      const r47 = rot47(inner);
       const key = generateRandomKey();
-      const xored = xorEncrypt(inner, key);
+      const xored = xorEncrypt(r47, key);
       const b91 = base91Encode(xored);
       out = out + "_XOR(" + String.fromCharCode(34) + b91 + String.fromCharCode(34) + "," + String.fromCharCode(34) + key + String.fromCharCode(34) + ")";
       i = j + 1;
@@ -397,6 +410,20 @@ function makePadding() {
   const padLen = 500 + Math.floor(Math.random() * 501);
   const safePad = makePadString(padLen).replace(/["']/g, "");
   return "local _pad = " + q + safePad + q + nl;
+}
+function wrapComplexity(code) {
+  let wKey1 = makePadString(3);
+  let wKey2 = makePadString(3);
+  let wrapped = "do\n";
+  wrapped += "local function " + wKey1 + "()\n";
+  wrapped += "local function " + wKey2 + "()\n";
+  wrapped += code + "\n";
+  wrapped += "end\n";
+  wrapped += wKey2 + "()\n";
+  wrapped += "end\n";
+  wrapped += wKey1 + "()\n";
+  wrapped += "end";
+  return wrapped;
 }
 function splitOnePerLine(body) {
   const fixed = [];
@@ -484,6 +511,17 @@ const LUAU_RUNTIME = [
   '    end',
   '    return table.concat(_o)',
   'end',
+  'local function _R47(s)',
+  '    local r = {}',
+  '    for i = 1, #s do',
+  '        local c = string.byte(s, i)',
+  '        if c >= 33 and c <= 126 then',
+  '            c = 33 + ((c + 14) % 94)',
+  '        end',
+  '        table.insert(r, string.char(c))',
+  '    end',
+  '    return table.concat(r)',
+  'end',
   'local function _XOR(data, key)',
   '    local decoded = _B91D(data)',
   '    local res = {}',
@@ -492,31 +530,16 @@ const LUAU_RUNTIME = [
   '        local k = string.byte(key, ((i - 1) % #key) + 1)',
   '        table.insert(res, string.char(bit32 and bit32.bxor(b, k) or (b ~ k)))',
   '    end',
-  '    return table.concat(res)',
+  '    return _R47(table.concat(res))',
   'end'
 ].join(String.fromCharCode(10));
 
-// PANGGIL RENAMEVARS DI SINI AGAR VARIABEL DIUBAH MENJADI ACAK
 function obfuscate(code) {
   const cleaned = removeComments(code);
   const renamed = renameVars(cleaned);
   const encoded = encodeStrings(renamed);
-  const parts = [];
-  let current = "";
-  for (const ch of encoded) {
-    if (ch === " " || ch === String.fromCharCode(10) || ch === String.fromCharCode(9) || ch === String.fromCharCode(13)) {
-      if (current) {
-        parts.push(current);
-        current = "";
-      }
-    } else {
-      current = current + ch;
-    }
-  }
-  if (current) {
-    parts.push(current);
-  }
-  const minified = parts.join(" ");
+  const complex = wrapComplexity(encoded);
+  const minified = " ".join(complex.split());
   const blocks = [["function", minified]];
   const flat = cffLPH(blocks);
   const head = "local _big = " + String.fromCharCode(34) + makePadString(120) + String.fromCharCode(34) + String.fromCharCode(10);
