@@ -86,11 +86,55 @@ function isNameChar(ch) {
 function isNameStart(ch) {
   return (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || ch === "_";
 }
+function parseParams(code, i, map, used, out) {
+  out.push("(");
+  i = i + 1;
+  while (i < code.length && code[i] !== ")") {
+    if (isNameStart(code[i])) {
+      const start = i;
+      while (i < code.length && isNameChar(code[i])) {
+        i = i + 1;
+      }
+      const name = code.slice(start, i);
+      if (!(name in map)) {
+        map[name] = randomThree(used);
+      }
+      out.push(map[name]);
+    } else {
+      out.push(code[i]);
+      i = i + 1;
+    }
+  }
+  if (i < code.length && code[i] === ")") {
+    out.push(")");
+    i = i + 1;
+  }
+  return i;
+}
 function renameVars(code) {
   const map = {};
   const used = {};
   const out = [];
   let i = 0;
+  function copySpaces() {
+    while (i < code.length && (code[i] === " " || code[i] === String.fromCharCode(9) || code[i] === String.fromCharCode(10) || code[i] === String.fromCharCode(13))) {
+      out.push(code[i]);
+      i = i + 1;
+    }
+  }
+  function readName() {
+    const start = i;
+    while (i < code.length && isNameChar(code[i])) {
+      i = i + 1;
+    }
+    return code.slice(start, i);
+  }
+  function mapName(name) {
+    if (!(name in map)) {
+      map[name] = randomThree(used);
+    }
+    return map[name];
+  }
   while (i < code.length) {
     const ch = code[i];
     if (ch === String.fromCharCode(34) || ch === String.fromCharCode(39)) {
@@ -133,31 +177,70 @@ function renameVars(code) {
       const word = code.slice(start, i);
       if (word === "local") {
         out.push(word);
-        while (i < code.length && code[i] === " ") {
-          out.push(code[i]);
-          i = i + 1;
-        }
-        while (true) {
-          if (code.slice(i, i + 8) === "function" && (i + 8 >= code.length || !isNameChar(code[i + 8]))) {
-            out.push("function");
-            i = i + 8;
-            while (i < code.length && code[i] === " ") {
-              out.push(code[i]);
-              i = i + 1;
-            }
-            const fstart = i;
+        copySpaces();
+        if (code.slice(i, i + 8) === "function" && (i + 8 >= code.length || !isNameChar(code[i + 8]))) {
+          out.push("function");
+          i = i + 8;
+          copySpaces();
+          const fname = readName();
+          if (fname) {
+            out.push(mapName(fname));
+          }
+          copySpaces();
+          if (i < code.length && code[i] === "(") {
+            i = parseParams(code, i, map, used, out);
+          }
+        } else {
+          while (true) {
+            const nstart = i;
             while (i < code.length && isNameChar(code[i])) {
               i = i + 1;
             }
-            const fname = code.slice(fstart, i);
-            if (fname) {
-              if (!(fname in map)) {
-                map[fname] = randomThree(used);
-              }
-              out.push(map[fname]);
+            const name = code.slice(nstart, i);
+            if (!name) {
+              break;
+            }
+            out.push(mapName(name));
+            copySpaces();
+            if (i < code.length && code[i] === ",") {
+              out.push(",");
+              i = i + 1;
+              copySpaces();
+              continue;
             }
             break;
           }
+        }
+      } else if (word === "function") {
+        out.push(word);
+        copySpaces();
+        if (i < code.length && code[i] === "(") {
+          i = parseParams(code, i, map, used, out);
+        } else {
+          const fname = readName();
+          if (fname) {
+            if (fname in map) {
+              out.push(map[fname]);
+            } else {
+              out.push(fname);
+            }
+          }
+          while (i < code.length && (code[i] === "." || code[i] === ":")) {
+            out.push(code[i]);
+            i = i + 1;
+            copySpaces();
+            const prop = readName();
+            out.push(prop);
+          }
+          copySpaces();
+          if (i < code.length && code[i] === "(") {
+            i = parseParams(code, i, map, used, out);
+          }
+        }
+      } else if (word === "for") {
+        out.push(word);
+        copySpaces();
+        while (true) {
           const nstart = i;
           while (i < code.length && isNameChar(code[i])) {
             i = i + 1;
@@ -166,22 +249,17 @@ function renameVars(code) {
           if (!name) {
             break;
           }
-          if (!(name in map)) {
-            map[name] = randomThree(used);
-          }
-          out.push(map[name]);
-          while (i < code.length && code[i] === " ") {
-            out.push(code[i]);
-            i = i + 1;
-          }
+          out.push(mapName(name));
+          copySpaces();
           if (i < code.length && code[i] === ",") {
             out.push(",");
             i = i + 1;
-            while (i < code.length && code[i] === " ") {
-              out.push(code[i]);
-              i = i + 1;
-            }
+            copySpaces();
             continue;
+          }
+          if (code.slice(i, i + 2) === "in" && (i + 2 >= code.length || !isNameChar(code[i + 2]))) {
+            out.push("in");
+            i = i + 2;
           }
           break;
         }
@@ -210,10 +288,12 @@ function removeComments(code) {
           break;
         }
         i = j + 2;
+        out = out + String.fromCharCode(10);
       } else {
         while (i < code.length && code[i] !== String.fromCharCode(10)) {
           i = i + 1;
         }
+        out = out + String.fromCharCode(10);
       }
     } else if (code[i] === String.fromCharCode(34) || code[i] === String.fromCharCode(39)) {
       const q = code[i];
@@ -293,7 +373,8 @@ function makePadding() {
   const q = String.fromCharCode(34);
   const nl = String.fromCharCode(10);
   const padLen = 500 + Math.floor(Math.random() * 501);
-  const pad = "local _pad = " + q + makePadString(padLen) + q + nl;
+  const safePad = makePadString(padLen).replace(/["']/g, "");
+  const pad = "local _pad = " + q + safePad + q + nl;
   let dummy = "local _dummy = {";
   for (let i = 1; i <= 50; i++) {
     dummy = dummy + " _k" + i + " = " + Math.floor(Math.random() * 100000);
@@ -302,9 +383,10 @@ function makePadding() {
     }
   }
   dummy = dummy + " }" + nl;
+  const junkNames = ["_AbC", "_DeF", "_GhI"];
   let junk = "";
-  for (let i = 1; i <= 3; i++) {
-    junk = junk + "local _junk" + i + " = function() return " + (100 + i) + " end" + nl;
+  for (let i = 0; i < junkNames.length; i++) {
+    junk = junk + "local " + junkNames[i] + " = function() return " + (101 + i) + " end" + nl;
   }
   return pad + dummy + junk;
 }
@@ -320,8 +402,14 @@ function cffLPH(blocks) {
     lines.push("elseif _LPH == " + (index + 1) + " then");
     lines.push("local _KIND = " + String.fromCharCode(34) + kind + String.fromCharCode(34));
     lines.push(body);
-    lines.push("_LPH = " + (index + 2));
+    if (index + 1 < blocks.length) {
+      lines.push("_LPH = " + (index + 2));
+    } else {
+      lines.push("_LPH = 0");
+    }
   }
+  lines.push("else");
+  lines.push("_LPH = 0");
   lines.push("end");
   lines.push("end");
   return lines.join(String.fromCharCode(10));
@@ -374,6 +462,8 @@ const LUAU_RUNTIME = [
   "        _LPH = 3",
   "    elseif _LPH == 3 then",
   "        _LPH = 0",
+  "    else",
+  "        _LPH = 0",
   "    end",
   "end"
 ].join(String.fromCharCode(10));
@@ -395,9 +485,9 @@ const PY_ENGINE = [
   '            used.add(name)',
   '            return name',
   'def is_name_char(ch):',
-  '    return ch.isalnum() or ch == "_"',
+  '    return ("a" <= ch <= "z") or ("A" <= ch <= "Z") or ("0" <= ch <= "9") or ch == "_"',
   'def is_name_start(ch):',
-  '    return ch.isalpha() or ch == "_"',
+  '    return ("a" <= ch <= "z") or ("A" <= ch <= "Z") or ch == "_"',
   'def base91_encode(data):',
   '    if isinstance(data, str):',
   '        data = data.encode("utf-8")',
@@ -423,6 +513,32 @@ const PY_ENGINE = [
   '        if n > 7 or b > 90:',
   '            out.append(B91_CHARS[b // 91])',
   '    return "".join(out)',
+  'def base91_decode(text):',
+  '    v = -1',
+  '    b = 0',
+  '    n = 0',
+  '    out = bytearray()',
+  '    for ch in text:',
+  '        if ch not in B91_MAP:',
+  '            continue',
+  '        p = B91_MAP[ch]',
+  '        if v < 0:',
+  '            v = p',
+  '        else:',
+  '            v = v + p * 91',
+  '            b = b | (v << n)',
+  '            if (v & 8191) > 88:',
+  '                n = n + 13',
+  '            else:',
+  '                n = n + 14',
+  '            while n >= 8:',
+  '                out.append(b & 255)',
+  '                b = b >> 8',
+  '                n = n - 8',
+  '            v = -1',
+  '    if v >= 0:',
+  '        out.append((b | (v << n)) & 255)',
+  '    return bytes(out)',
   'def remove_comments(code):',
   '    result = ""',
   '    i = 0',
@@ -433,9 +549,11 @@ const PY_ENGINE = [
   '                if j < 0:',
   '                    break',
   '                i = j + 2',
+  '                result = result + chr(10)',
   '            else:',
   '                while i < len(code) and code[i] != chr(10):',
   '                    i = i + 1',
+  '                result = result + chr(10)',
   '        elif code[i] == chr(34) or code[i] == chr(39):',
   '            q = code[i]',
   '            result = result + code[i]',
@@ -457,6 +575,25 @@ const PY_ENGINE = [
   '            result = result + code[i]',
   '            i = i + 1',
   '    return result',
+  'def parse_params(code, i, mapping, used, out):',
+  '    out.append("(")',
+  '    i = i + 1',
+  '    while i < len(code) and code[i] != ")":',
+  '        if is_name_start(code[i]):',
+  '            start = i',
+  '            while i < len(code) and is_name_char(code[i]):',
+  '                i = i + 1',
+  '            name = code[start:i]',
+  '            if name not in mapping:',
+  '                mapping[name] = random_three(used)',
+  '            out.append(mapping[name])',
+  '        else:',
+  '            out.append(code[i])',
+  '            i = i + 1',
+  '    if i < len(code) and code[i] == ")":',
+  '        out.append(")")',
+  '        i = i + 1',
+  '    return i',
   'def rename_vars(code):',
   '    mapping = {}',
   '    used = set()',
@@ -501,22 +638,85 @@ const PY_ENGINE = [
   '                while i < len(code) and code[i] == " ":',
   '                    out.append(code[i])',
   '                    i = i + 1',
-  '                while True:',
-  '                    if code[i:i + 8] == "function" and (i + 8 >= len(code) or not is_name_char(code[i + 8])):',
-  '                        out.append("function")',
-  '                        i = i + 8',
+  '                if code[i:i + 8] == "function" and (i + 8 >= len(code) or not is_name_char(code[i + 8])):',
+  '                    out.append("function")',
+  '                    i = i + 8',
+  '                    while i < len(code) and code[i] == " ":',
+  '                        out.append(code[i])',
+  '                        i = i + 1',
+  '                    fstart = i',
+  '                    while i < len(code) and is_name_char(code[i]):',
+  '                        i = i + 1',
+  '                    fname = code[fstart:i]',
+  '                    if fname:',
+  '                        if fname not in mapping:',
+  '                            mapping[fname] = random_three(used)',
+  '                        out.append(mapping[fname])',
+  '                    while i < len(code) and code[i] == " ":',
+  '                        out.append(code[i])',
+  '                        i = i + 1',
+  '                    if i < len(code) and code[i] == "(":',
+  '                        i = parse_params(code, i, mapping, used, out)',
+  '                else:',
+  '                    while True:',
+  '                        nstart = i',
+  '                        while i < len(code) and is_name_char(code[i]):',
+  '                            i = i + 1',
+  '                        name = code[nstart:i]',
+  '                        if not name:',
+  '                            break',
+  '                        if name not in mapping:',
+  '                            mapping[name] = random_three(used)',
+  '                        out.append(mapping[name])',
   '                        while i < len(code) and code[i] == " ":',
   '                            out.append(code[i])',
   '                            i = i + 1',
-  '                        fstart = i',
+  '                        if i < len(code) and code[i] == ",":',
+  '                            out.append(",")',
+  '                            i = i + 1',
+  '                            while i < len(code) and code[i] == " ":',
+  '                                out.append(code[i])',
+  '                                i = i + 1',
+  '                            continue',
+  '                        break',
+  '            elif word == "function":',
+  '                out.append(word)',
+  '                while i < len(code) and code[i] == " ":',
+  '                    out.append(code[i])',
+  '                    i = i + 1',
+  '                if i < len(code) and code[i] == "(":',
+  '                    i = parse_params(code, i, mapping, used, out)',
+  '                else:',
+  '                    fstart = i',
+  '                    while i < len(code) and is_name_char(code[i]):',
+  '                        i = i + 1',
+  '                    fname = code[fstart:i]',
+  '                    if fname:',
+  '                        if fname in mapping:',
+  '                            out.append(mapping[fname])',
+  '                        else:',
+  '                            out.append(fname)',
+  '                    while i < len(code) and code[i] in ".:":',
+  '                        out.append(code[i])',
+  '                        i = i + 1',
+  '                        while i < len(code) and code[i] == " ":',
+  '                            out.append(code[i])',
+  '                            i = i + 1',
+  '                        pstart = i',
   '                        while i < len(code) and is_name_char(code[i]):',
   '                            i = i + 1',
-  '                        fname = code[fstart:i]',
-  '                        if fname:',
-  '                            if fname not in mapping:',
-  '                                mapping[fname] = random_three(used)',
-  '                            out.append(mapping[fname])',
-  '                        break',
+  '                        out.append(code[pstart:i])',
+  '                    while i < len(code) and code[i] == " ":',
+  '                        out.append(code[i])',
+  '                        i = i + 1',
+  '                    if i < len(code) and code[i] == "(":',
+  '                        i = parse_params(code, i, mapping, used, out)',
+  '            elif word == "for":',
+  '                out.append(word)',
+  '                while i < len(code) and code[i] == " ":',
+  '                    out.append(code[i])',
+  '                    i = i + 1',
+  '                while True:',
   '                    nstart = i',
   '                    while i < len(code) and is_name_char(code[i]):',
   '                        i = i + 1',
@@ -536,6 +736,9 @@ const PY_ENGINE = [
   '                            out.append(code[i])',
   '                            i = i + 1',
   '                        continue',
+  '                    if code[i:i + 2] == "in" and (i + 2 >= len(code) or not is_name_char(code[i + 2])):',
+  '                        out.append("in")',
+  '                        i = i + 2',
   '                    break',
   '            elif word in KEYWORDS:',
   '                out.append(word)',
@@ -589,16 +792,18 @@ const PY_ENGINE = [
   '    q = chr(34)',
   '    nl = chr(10)',
   '    pad_len = 500 + random.randrange(501)',
-  '    pad = "local _pad = " + q + make_pad_string(pad_len) + q + nl',
+  '    safe_pad = make_pad_string(pad_len).replace(chr(34), "").replace(chr(39), "")',
+  '    pad = "local _pad = " + q + safe_pad + q + nl',
   '    dummy = "local _dummy = {"',
   '    for _i in range(1, 51):',
   '        dummy = dummy + " _k" + str(_i) + " = " + str(random.randrange(100000))',
   '        if _i < 50:',
   '            dummy = dummy + ","',
   '    dummy = dummy + " }" + nl',
+  '    junk_names = ["_AbC", "_DeF", "_GhI"]',
   '    junk = ""',
-  '    for _i in range(1, 4):',
-  '        junk = junk + "local _junk" + str(_i) + " = function() return " + str(100 + _i) + " end" + nl',
+  '    for _i, _name in enumerate(junk_names):',
+  '        junk = junk + "local " + _name + " = function() return " + str(101 + _i) + " end" + nl',
   '    return pad + dummy + junk',
   'def build_lph_cff(blocks):',
   '    lines = []',
@@ -612,7 +817,12 @@ const PY_ENGINE = [
   '        lines.append("elseif _LPH == " + str(index + 1) + " then")',
   '        lines.append("local _KIND = " + chr(34) + kind + chr(34))',
   '        lines.append(body)',
-  '        lines.append("_LPH = " + str(index + 2))',
+  '        if index + 1 < len(blocks):',
+  '            lines.append("_LPH = " + str(index + 2))',
+  '        else:',
+  '            lines.append("_LPH = 0")',
+  '    lines.append("else")',
+  '    lines.append("_LPH = 0")',
   '    lines.append("end")',
   '    lines.append("end")',
   '    return chr(10).join(lines)',
@@ -663,6 +873,8 @@ const PY_ENGINE = [
   'LUAU_LINES.append("    elseif _LPH == 2 then")',
   'LUAU_LINES.append("        _LPH = 3")',
   'LUAU_LINES.append("    elseif _LPH == 3 then")',
+  'LUAU_LINES.append("        _LPH = 0")',
+  'LUAU_LINES.append("    else")',
   'LUAU_LINES.append("        _LPH = 0")',
   'LUAU_LINES.append("    end")',
   'LUAU_LINES.append("end")',
@@ -728,16 +940,17 @@ function updateStats(original, protectedText) {
   }
 }
 async function importPy() {
-  if (window.loadPyodide) {
-    try {
-      const pyodide = await window.loadPyodide();
-      pyodide.runPython(PY_ENGINE);
-      const obfuscatePy = pyodide.globals.get("obfuscate");
-      if (obfuscatePy) {
-        return obfuscatePy;
-      }
-    } catch (e) {
+  if (!window.loadPyodide) {
+    return null;
+  }
+  try {
+    const pyodide = await window.loadPyodide();
+    pyodide.runPython(PY_ENGINE);
+    const obfuscatePy = pyodide.globals.get("obfuscate");
+    if (obfuscatePy) {
+      return obfuscatePy;
     }
+  } catch (e) {
   }
   return null;
 }
