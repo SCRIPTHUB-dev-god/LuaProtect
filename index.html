@@ -1,66 +1,64 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>luau-pro project</title>
-  <link rel="stylesheet" href="style.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>luau-pro project</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="logo">L</span>
-      <div>
-        <h1>luau-pro project</h1>
-        <p>Full Code - Copy ke Editor Kamu</p>
-      </div>
-    </div>
-    <button class="hamburger" id="hamburger" type="button" aria-label="Buka menu" aria-expanded="false" aria-controls="menu">
-      <span></span>
-      <span></span>
-      <span></span>
-    </button>
-  </header>
-
-  <nav class="menu" id="menu" hidden>
-    <a href="#editor">Editor</a>
-    <a href="#output">Hasil</a>
-    <a href="#tentang">Tentang</a>
-  </nav>
-
-  <main class="wrap" id="editor">
-    <section class="panel">
-      <label class="label" for="inputCode">Kode Luau</label>
-      <textarea id="inputCode" rows="10" placeholder="Tempel kode Luau di sini..."></textarea>
-
-      <div class="options">
-        <label><input type="checkbox" id="optComments" checked /> Hapus komentar</label>
-        <label><input type="checkbox" id="optRename" checked /> Rename locals</label>
-        <label><input type="checkbox" id="optStrings" checked /> Encode strings</label>
-        <label><input type="checkbox" id="optMinify" checked /> Minify</label>
-      </div>
-
-      <div class="actions">
-        <button class="btn primary" id="btnProtect" type="button">Protect</button>
-        <button class="btn" id="btnCopy" type="button">Copy</button>
-        <button class="btn danger" id="btnClear" type="button">Clear</button>
-      </div>
-
-      <label class="label" for="outputCode">Hasil Protect</label>
-      <textarea id="outputCode" rows="10" readonly placeholder="Hasil protect akan muncul di sini..."></textarea>
-      <p class="hint" id="status">Siap. Tempel kode, lalu tekan Protect.</p>
-    </section>
-
-    <section class="panel" id="tentang">
-      <h2>Cara pakai</h2>
-      <ol>
-        <li>Copy 3 file di bawah ke satu folder.</li>
-        <li>Buka index.html di browser.</li>
-        <li>Tempel kode Luau, pilih opsi, tekan Protect.</li>
-      </ol>
-    </section>
-  </main>
-
-  <script src="script.js"></script>
+<header class="topbar">
+<button class="hamburger" id="hamburger" aria-label="Toggle menu">
+<span></span>
+<span></span>
+<span></span>
+</button>
+<div class="brand">
+<h1>luau-pro project</h1>
+<p>RAW - Copy to Your Editor</p>
+</div>
+</header>
+<aside class="sidebar" id="sidebar">
+<nav>
+<button class="nav-item active" data-tab="dashboard">Dashboard</button>
+<button class="nav-item" data-tab="obfuscator">Obfuscator</button>
+<button class="nav-item" data-tab="information">Information</button>
+</nav>
+</aside>
+<main class="main">
+<section class="tab-panel active" id="dashboard">
+<h2>Dashboard</h2>
+<p>Welcome to luau-pro project. Open the Obfuscator tab to protect your Luau code.</p>
+<div class="stat-grid">
+<div class="stat"><span>Ready</span><strong>Luau Protection</strong></div>
+<div class="stat"><span>Local</span><strong>No Upload Needed</strong></div>
+<div class="stat"><span>Fast</span><strong>Instant Output</strong></div>
+</div>
+</section>
+<section class="tab-panel" id="obfuscator">
+<h2>Obfuscator</h2>
+<p>Paste your Luau code below, then press Protect.</p>
+<label for="inputCode">Luau Input</label>
+<textarea id="inputCode" placeholder="Paste your Luau code here..."></textarea>
+<div class="actions">
+<button id="protectBtn">Protect</button>
+<button id="clearBtn">Clear</button>
+</div>
+<label for="outputCode">Protected Output</label>
+<div class="output-box" id="outputCode">Your protected code will appear here.</div>
+<button id="copyBtn">Copy Output</button>
+</section>
+<section class="tab-panel" id="information">
+<h2>Information</h2>
+<p>luau-pro project helps you prepare Luau code for sharing.</p>
+<ul>
+<li>Removes comments</li>
+<li>Renames local variables</li>
+<li>Minifies whitespace</li>
+<li>Encodes readable strings</li>
+</ul>
+</section>
+</main>
+<script src="script.js"></script>
 </body>
 </html>
