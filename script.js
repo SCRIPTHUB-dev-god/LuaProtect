@@ -7,7 +7,6 @@ const outputCode = document.getElementById("outputCode");
 const protectBtn = document.getElementById("protectBtn");
 const clearBtn = document.getElementById("clearBtn");
 const copyBtn = document.getElementById("copyBtn");
-let counter = 0;
 function refreshIcons() {
   if (window.lucide) {
     lucide.createIcons();
@@ -27,60 +26,24 @@ function showTab(tabName) {
   sidebar.classList.remove("open");
   refreshIcons();
 }
-function removeComments(code) {
-  let result = "";
-  let i = 0;
-  while (i < code.length) {
-    if (code.slice(i, i + 2) === "--") {
-      while (i < code.length && code[i] !== "\n") {
-        i += 1;
-      }
-    } else {
-      result += code[i];
-      i += 1;
-    }
+async function runObfus(code) {
+  const engine = await fetch("obfus.py").then(function (r) { return r.text(); });
+  if (engine && window.ObfusEngine) {
+    return window.ObfusEngine.obfuscate(code);
   }
-  return result;
-}
-function encodeStrings(code) {
-  return code.replace(/"([^"\n]*)"/g, function (match, inner) {
-    const bytes = [];
-    for (let i = 0; i < inner.length; i += 1) {
-      bytes.push("\\x" + inner.charCodeAt(i).toString(16).padStart(2, "0"));
-    }
-    return '"' + bytes.join("") + '"';
-  });
-}
-function renameLocals(code) {
-  const found = {};
-  const pattern = /local\s+([A-Za-z_][A-Za-z0-9_]*)/g;
-  let match = pattern.exec(code);
-  while (match !== null) {
-    if (!found[match[1]]) {
-      counter += 1;
-      found[match[1]] = "_v" + counter;
-    }
-    match = pattern.exec(code);
-  }
-  Object.keys(found).forEach(function (name) {
-    const safe = name.replace(/[.*+?^$\{\}()|[\]\\]/g, "\\$&");
-    const replacePattern = new RegExp("\\b" + safe + "\\b", "g");
-    code = code.replace(replacePattern, found[name]);
-  });
   return code;
 }
-function protect() {
+async function protect() {
   const raw = inputCode.value.trim();
   if (!raw) {
     outputCode.textContent = "Paste Luau code first.";
     return;
   }
-  counter = 0;
-  let result = removeComments(raw);
-  result = renameLocals(result);
-  result = encodeStrings(result);
-  result = result.replace(/\s+/g, " ").trim();
-  outputCode.textContent = result;
+  if (!window.ObfusEngine || !window.ObfusEngine.obfuscate) {
+    outputCode.textContent = "Load obfus.py first";
+    return;
+  }
+  outputCode.textContent = await runObfus(raw);
 }
 function clearAll() {
   inputCode.value = "";
