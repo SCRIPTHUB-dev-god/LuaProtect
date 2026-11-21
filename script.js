@@ -1336,7 +1336,10 @@ const LUAU_RUNTIME = [
 'end'
 ].join(String.fromCharCode(10));
 function wrapHeader(body) {
-return '([[\n code in protection by lord-luau.vercel.app v1.0 \n]]):gsub(".+", function() local _R = (function()\n' + body + '\nend)() end)()';
+// no trailing "()" : s:gsub() returns the (string, count) pair, so calling
+// its first result would raise "attempt to call a string value".
+// The callback body already executes during the gsub call itself.
+return '([[\n code in protection by lord-luau.vercel.app v1.0 \n]]):gsub(".+", function() local _R = (function()\n' + body + '\nend)() end)';
 }
 function obfuscate(code) {
 const prepped = splitLoadstring(code);
