@@ -18,6 +18,7 @@ body {
   border-bottom: 1px solid #30363d;
   padding: 0 18px;
   position: relative;
+  z-index: 101;
 }
 .brand {
   display: flex;
@@ -51,7 +52,7 @@ body {
   height: 44px;
   min-width: 44px;
   min-height: 44px;
-  z-index: 100;
+  z-index: 102;
   pointer-events: auto;
   flex-shrink: 0;
   position: relative;
@@ -62,7 +63,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   color: #e6edf3;
 }
 .brand h1 {
@@ -76,6 +76,23 @@ body {
   letter-spacing: 1px;
   text-transform: uppercase;
 }
+.sidebar-overlay {
+  position: fixed;
+  top: 72px;
+  left: 0;
+  width: 100vw;
+  height: calc(100vh - 72px);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+  z-index: 99;
+}
+.sidebar-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
 .sidebar {
   position: fixed;
   top: 72px;
@@ -88,7 +105,7 @@ body {
   border-left: 1px solid #30363d;
   padding: 18px 12px;
   transition: right 0.25s ease;
-  z-index: 20;
+  z-index: 100;
   overflow-x: hidden;
   overflow-y: auto;
   box-sizing: border-box;
@@ -199,7 +216,6 @@ textarea {
   border-radius: 10px;
   padding: 16px;
   font-family: ui-monospace, monospace;
-  resize: vertical;
 }
 .actions {
   display: flex;
