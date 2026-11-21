@@ -1,88 +1,100 @@
-// luau-pro project - script.js
-// Hanya untuk di-copy ke editor. Jangan di-run di halaman ini.
-
+const hamburger = document.getElementById("hamburger");
+const sidebar = document.getElementById("sidebar");
+const navItems = document.querySelectorAll(".nav-item");
+const panels = document.querySelectorAll(".tab-panel");
+const inputCode = document.getElementById("inputCode");
+const outputCode = document.getElementById("outputCode");
+const protectBtn = document.getElementById("protectBtn");
+const clearBtn = document.getElementById("clearBtn");
+const copyBtn = document.getElementById("copyBtn");
+let counter = 0;
+function toggleSidebar() {
+  sidebar.classList.toggle("open");
+}
+function showTab(tabName) {
+  navItems.forEach(function (item) {
+    item.classList.toggle("active", item.dataset.tab === tabName);
+  });
+  panels.forEach(function (panel) {
+    panel.classList.toggle("active", panel.id === tabName);
+  });
+  sidebar.classList.remove("open");
+}
 function removeComments(code) {
-  var out = String(code || "");
-  out = out.replace(/--\[\[[\s\S]*?\]\]/g, "");
-  out = out.replace(/--[^\n]*/g, "");
-  return out;
+  let result = "";
+  let i = 0;
+  while (i < code.length) {
+    if (code.slice(i, i + 2) === "--") {
+      while (i < code.length && code[i] !== "\n") {
+        i += 1;
+      }
+    } else {
+      result += code[i];
+      i += 1;
+    }
+  }
+  return result;
 }
-
-function renameLocals(code) {
-  var map = {};
-  var next = 1;
-  var renamed = String(code || "").replace(/local\s+([A-Za-z_][A-Za-z0-9_]*)/g, function (match, name) {
-    if (!map[name]) map[name] = "_L" + (next++);
-    return "local " + map[name];
-  });
-  Object.keys(map).forEach(function (name) {
-    var re = new RegExp("\\b" + name + "\\b", "g");
-    renamed = renamed.replace(re, map[name]);
-  });
-  return renamed;
-}
-
 function encodeStrings(code) {
-  return String(code || "").replace(/"([^"]*)"/g, function (match, inner) {
-    var nums = [];
-    for (var i = 0; i < inner.length; i++) nums.push(inner.charCodeAt(i));
-    return "string.char(" + nums.join(",") + ")";
+  return code.replace(/"([^"\n]*)"/g, function (match, inner) {
+    const bytes = [];
+    for (let i = 0; i < inner.length; i += 1) {
+      bytes.push("\\x" + inner.charCodeAt(i).toString(16).padStart(2, "0"));
+    }
+    return '"' + bytes.join("") + '"';
   });
 }
-
-function minify(code) {
-  return String(code || "")
-    .replace(/\s+/g, " ")
-    .replace(/\s*([=\+\-\*\/%,;:%(%){}%[%]] )\s*/g, "$1")
-    .trim();
+function renameLocals(code) {
+  const found = {};
+  const pattern = /local\s+([A-Za-z_][A-Za-z0-9_]*)/g;
+  let match = pattern.exec(code);
+  while (match !== null) {
+    if (!found[match[1]]) {
+      counter += 1;
+      found[match[1]] = "_v" + counter;
+    }
+    match = pattern.exec(code);
+  }
+  Object.keys(found).forEach(function (name) {
+    const safe = name.replace(/[.*+?^$\{\}()|[\]\\]/g, "\\$&");
+    const replacePattern = new RegExp("\\b" + safe + "\\b", "g");
+    code = code.replace(replacePattern, found[name]);
+  });
+  return code;
 }
-
 function protect() {
-  var input = document.getElementById("inputCode");
-  var output = document.getElementById("outputCode");
-  var status = document.getElementById("status");
-  var code = input.value;
-  if (!code.trim()) {
-    status.textContent = "Tempel kode Luau dulu.";
+  const raw = inputCode.value.trim();
+  if (!raw) {
+    outputCode.textContent = "Paste Luau code first.";
     return;
   }
-  if (document.getElementById("optComments").checked) code = removeComments(code);
-  if (document.getElementById("optRename").checked) code = renameLocals(code);
-  if (document.getElementById("optStrings").checked) code = encodeStrings(code);
-  if (document.getElementById("optMinify").checked) code = minify(code);
-  output.value = code;
-  status.textContent = "Protect selesai. Tekan Copy untuk menyalin hasil.";
+  counter = 0;
+  let result = removeComments(raw);
+  result = renameLocals(result);
+  result = encodeStrings(result);
+  result = result.replace(/\s+/g, " ").trim();
+  outputCode.textContent = result;
 }
-
-function copyOutput() {
-  var output = document.getElementById("outputCode");
-  var status = document.getElementById("status");
-  if (!output.value) {
-    status.textContent = "Belum ada hasil untuk di-copy.";
-    return;
-  }
-  output.select();
-  document.execCommand("copy");
-  status.textContent = "Hasil tersalin!";
-}
-
 function clearAll() {
-  document.getElementById("inputCode").value = "";
-  document.getElementById("outputCode").value = "";
-  document.getElementById("status").textContent = "Dibersihkan. Siap untuk kode baru.";
+  inputCode.value = "";
+  outputCode.textContent = "Your protected code will appear here.";
+  inputCode.focus();
 }
-
-function toggleMenu() {
-  var btn = document.getElementById("hamburger");
-  var menu = document.getElementById("menu");
-  var open = btn.getAttribute("aria-expanded") !== "true";
-  btn.setAttribute("aria-expanded", String(open));
-  menu.hidden = !open;
+function copyOutput() {
+  const text = outputCode.textContent || "";
+  navigator.clipboard.writeText(text).then(function () {
+    copyBtn.textContent = "Copied";
+    setTimeout(function () {
+      copyBtn.textContent = "Copy Output";
+    }, 1200);
+  });
 }
-
-document.addEventListener("DOMContentLoaded", function () {
-  document.getElementById("btnProtect").addEventListener("click", protect);
-  document.getElementById("btnCopy").addEventListener("click", copyOutput);
-  document.getElementById("btnClear").addEventListener("click", clearAll);
-  document.getElementById("hamburger").addEventListener("click", toggleMenu);
+hamburger.addEventListener("click", toggleSidebar);
+navItems.forEach(function (item) {
+  item.addEventListener("click", function () {
+    showTab(item.dataset.tab);
+  });
 });
+protectBtn.addEventListener("click", protect);
+clearBtn.addEventListener("click", clearAll);
+copyBtn.addEventListener("click", copyOutput);
