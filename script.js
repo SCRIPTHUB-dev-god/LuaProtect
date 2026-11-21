@@ -984,6 +984,7 @@ const outputCode = document.getElementById("outputCode");
 const protectBtn = document.getElementById("protectBtn");
 const clearBtn = document.getElementById("clearBtn");
 const copyBtn = document.getElementById("copyBtn");
+const showBrokenBtn = document.getElementById("showBrokenBtn");
 function refreshIcons() {
   if (window.lucide) {
     lucide.createIcons();
@@ -992,6 +993,17 @@ function refreshIcons() {
 function toggleSidebar() {
   sidebar.classList.toggle("open");
   refreshIcons();
+}
+// TUTORIAL: kenapa menu ini ga bisa di-click:
+// 1. pointer-events: none di .menu-broken - klik tembus / tidak diterima menu.
+// 2. ketutup overlay transparan .menu-overlay-bug dengan z-index 1000, lebih tinggi dari menu (999).
+// 3. hamburger z-index kalah dari overlay, jadi klik hamburger juga ketutup overlay.
+function showBrokenMenu() {
+  var brokenMenu = document.querySelector('.menu-broken');
+  if (brokenMenu) {
+    brokenMenu.style.display = 'block';
+  }
+  console.log('MENU MUNCUL TAPI GA BISA DI-CLICK - pointer-events: none + ketutup overlay');
 }
 function showTab(tabName) {
   document.querySelectorAll(".nav-item").forEach(function (item) {
@@ -1043,6 +1055,9 @@ function copyOutput() {
   }, 1200);
 }
 hamburger.addEventListener("click", toggleSidebar);
+if (showBrokenBtn) {
+  showBrokenBtn.addEventListener("click", showBrokenMenu);
+}
 navItems.forEach(function (item) {
   item.addEventListener("click", function () {
     showTab(item.dataset.tab);
