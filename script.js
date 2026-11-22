@@ -1116,8 +1116,6 @@ const nl = String.fromCharCode(10);
 const lines = [];
 lines.push('local vm = "' + c.outerB + '"');
 lines.push('local _seedX = ' + luaDqEsc(c.seedX));
-lines.push('local _vmLook = _lol(vm)');
-// hash input mirrors JS: VM_MARK .. \31 .. vm
 lines.push('local _hb = "' + VM_MARK + '" .. string.char(31) .. vm');
 lines.push('local _h = 0');
 lines.push('local _hi = 1');
@@ -1135,7 +1133,7 @@ lines.push('_parts[#_parts + 1] = string.sub(_ov, _pp, _nx - 1)');
 lines.push('_pp = _nx + 1');
 lines.push('end');
 lines.push('if #_parts < 3 then');
-lines.push('_np(_lolm(vm))');
+lines.push('_np(vm)');
 lines.push('else');
 lines.push('local _oRaw = _DX(_parts[1], _seed)');
 lines.push('local _OP = {}');
@@ -1149,7 +1147,7 @@ lines.push('for _tok in string.gmatch(_bRaw, "[^,]+") do _B[#_B + 1] = tonumber(
 lines.push('local _C = {}');
 lines.push('for _i = 3, #_parts do _C[_i - 2] = _DX(_parts[_i], _seed) end');
 lines.push('if _OP.halt == nil or _B[1] == nil then');
-lines.push('_np(_lolm(vm))');
+lines.push('_np(vm)');
 lines.push('else');
 lines.push('local _E = { np = _np }');
 lines.push('local _ST = {}');
@@ -1190,17 +1188,13 @@ lines.push('_run(1)');
 lines.push('end');
 lines.push('end');
 lines.push('else');
-lines.push('_np(_lolm(vm))');
+lines.push('_np(vm)');
 lines.push('end');
 // _bfC must be declared BEFORE local function _bfKey so _bfKey closes
 // over the upvalue instead of a nil global.
 return flattenLua('local _bfC = ' + luaDqEsc(c.bfC) + nl + LUAU_RUNTIME + nl + lines.join(nl));
 }
 const LUAU_RUNTIME = [
-'local _mn = 0',
-'local _tv = 0',
-'if type(os) == "table" and os.time then _tv = os.time() end',
-'_mn = math.floor(_tv / 60)',
 'local _B91C = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_-{|}~" .. string.char(39)',
 'local _B91M = {}',
 'for _i = 1, #_B91C do',
@@ -1285,14 +1279,6 @@ const LUAU_RUNTIME = [
 'local function _DX(data, seed)',
 ' return _kxor(_R47(_B91D(data)), seed)',
 'end',
-'local function _lol(s)',
-' local o = s:gsub(".", function(_c) return _R47(_c) end)',
-' return o',
-'end',
-'local function _lolm(s)',
-' local b = _lol(s)',
-' return _kxor(b, "z" .. _mn)',
-'end',
 'local function _bfKey()',
 ' local k = {}',
 ' for _i = 1, 12 do',
@@ -1307,15 +1293,16 @@ const LUAU_RUNTIME = [
 ' end',
 ' return table.concat(k)',
 'end',
-'if type(task) == "table" and task.wait then',
-' local _co = coroutine.create(function()',
-' while true do',
-' task.wait(60)',
-' if type(os) == "table" and os.time then _mn = math.floor(os.time() / 60) end',
-' end',
-' end)',
-' coroutine.resume(_co)',
-'end',
+'local _np = function(...)',
+' local _f = print',
+' local _a = {...}',
+' return _f(table.unpack(_a))',
+'end'
+].join(String.fromCharCode(10));
+// _XOR/_pm0 belong to the legacy (non-VM) fallback path only: encodeStrings
+// emits _XOR(...) calls and proxifyLocals emits _pm0(...). Kept out of the
+// VM runtime so VM output carries no dead code.
+const LEGACY_RUNTIME = [
 'local function _XOR(data, key)',
 ' local decoded = _R47(_B91D(data))',
 ' local res = {}',
@@ -1328,11 +1315,6 @@ const LUAU_RUNTIME = [
 'end',
 'local function _pm0(v)',
 ' return setmetatable({value=v},{__index=function(t,k) return t.value end,__newindex=function(t,k,x) t.value=x end})',
-'end',
-'local _np = function(...)',
-' local _f = print',
-' local _a = {...}',
-' return _f(table.unpack(_a))',
 'end'
 ].join(String.fromCharCode(10));
 function wrapHeader(body) {
@@ -1377,7 +1359,7 @@ const minified = parts.join(" ");
 const blocks = [["function", minified]];
 const flat = cffLPH(blocks);
 const wrapped = "do\n" + flat + "\nend";
-body = LUAU_RUNTIME + "\n\n" + wrapped;
+body = LUAU_RUNTIME + "\n" + LEGACY_RUNTIME + "\n\n" + wrapped;
 }
 return wrapHeader(body);
 }
