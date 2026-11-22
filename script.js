@@ -228,7 +228,7 @@ const LUAU_RUNTIME = [
 'local function _kxor(data, key)',' local res = {}',' local _i = 1',' while true do',' local b = string.byte(data, _i)',' if not b then break end',' local k = string.byte(key, ((_i - 1) % #key) + 1)',' table.insert(res, string.char(_bxor(b, k)))',' _i = _i + 1',' end',' return table.concat(res)','end',
 'local function _DX(data, seed)',' return _kxor(_R47(_B91D(data)), seed)','end',
 'local function _bfKey()',' local k = {}',' for _i = 1, 12 do',' local _want = string.sub(_bfC, _i, _i)',' for _c = 97, 122 do',' if string.char(_c) == _want then',' k[_i] = string.char(_c)',' break',' end',' end',' if not k[_i] then return nil end',' end',' return table.concat(k)','end',
-'local _np = function(...)',' local _a = {...}',' local function _emit(fn) if fn then pcall(fn, table.unpack(_a)) end end',' _emit(print)',' _emit(warn)',' if rconsoleprint then pcall(function() local _s={} for _i=1,#_a do _s[_i]=tostring(_a[_i]) end rconsoleprint(table.concat(_s, " ").."\n") end) end',' if rprint then _emit(rprint) end',' return table.unpack(_a)','end'
+'local _np = function(...)',' local _a = {...}',' local function _emit(fn) if fn then pcall(fn, table.unpack(_a)) end end',' _emit(print)',' _emit(warn)',' if rconsoleprint then pcall(function() local _s={} for _i=1,#_a do _s[_i]=tostring(_a[_i]) end rconsoleprint(table.concat(_s, " ").."\\n") end) end',' if rprint then _emit(rprint) end',' return table.unpack(_a)','end'
 ].join(String.fromCharCode(10));
 const LEGACY_RUNTIME = [
 'local function _XOR(data, key)',' local decoded = _R47(_B91D(data))',' local res = {}',' for i = 1, #decoded do',' local b = string.byte(decoded, i)',' local k = string.byte(key, ((i - 1) % #key) + 1)',' table.insert(res, string.char(_bxor(b, k)))',' end',' return table.concat(res)','end',
@@ -238,8 +238,10 @@ const LEGACY_RUNTIME = [
 'end'
 ].join(String.fromCharCode(10));
 function wrapHeader(body){
-  // FIX: single-line, tidak pakai [[\n...\n]] yang nanti jadi [[;...;]] setelah flatten. Tidak ada trailing () .
-  return '("code in protection by lord-luau.vercel.app v1.0"):gsub(".+", function() (function()\n' + body + '\nend)() end)';
+  // FIX: runner langsung, tanpa gsub. gsub(".+", function() ... end) itu yang bikin line ga ke-run di executor:
+  // kalau pattern ga match / gsub di-hook, inner function ga pernah dipanggil, print ga pernah jalan.
+  // print bukan runner, runner itu (function() ... end)() + _run(1) di VM.
+  return '(function()\n' + body + '\nend)()';
 }
 function obfuscate(code){
   const prepped = splitLoadstring(code);
