@@ -703,14 +703,8 @@ map[m] = v;
 }
 return map;
 }
-function dxEncrypt(plain, seed, idx) {
-let x = "";
-for (let i = 0; i < plain.length; i++) {
-const b = plain.charCodeAt(i);
-const k = seed.charCodeAt((i + idx * 13) % seed.length);
-x += String.fromCharCode(b ^ k);
-}
-return rot47(x);
+function dxEncrypt(plain, seed) {
+return base91Encode(rot47(xorStr(plain, seed)));
 }
 function xorStr(s, key) {
 let o = "";
@@ -821,11 +815,11 @@ function patch(operandPc, targetPc) {
 bc[operandPc - 1] = targetPc;
 }
 function constStr(s) {
-consts.push({ kind: "s", blob: dxEncrypt(s, seed, consts.length + 1) });
+consts.push({ kind: "s", blob: dxEncrypt(s, seed) });
 return consts.length;
 }
 function constNum(s) {
-consts.push({ kind: "n", blob: dxEncrypt(s, seed, consts.length + 1) });
+consts.push({ kind: "n", blob: dxEncrypt(s, seed) });
 return consts.length;
 }
 function slotOf(name) {
@@ -1100,8 +1094,8 @@ const bPlain = bc.join(",");
 const oPlain = Object.keys(op).map(function (k) {
 return k + "=" + op[k];
 }).join(",");
-const bBlob = dxEncrypt(bPlain, seed, 99);
-const oBlob = dxEncrypt(oPlain, seed, 7);
+const bBlob = dxEncrypt(bPlain, seed);
+const oBlob = dxEncrypt(oPlain, seed);
 const cBlobs = consts.map(function (ct) { return ct.blob; });
 const key12 = generateAlphaKey(12);
 const bfC = bfChecksum(key12);
@@ -1133,21 +1127,27 @@ lines.push('local _seed = _kxor(_seedX, tostring(_h))');
 lines.push('if _k12 then');
 lines.push('local _ov = _kxor(_R47(_B91D(vm)), _k12)');
 lines.push('local _parts = {}');
-lines.push('for _seg in string.gmatch(_ov, "[^\\255]+") do _parts[#_parts + 1] = _seg end');
+lines.push('local _pp = 1');
+lines.push('while true do');
+lines.push('local _nx = string.find(_ov, "\\255", _pp, true)');
+lines.push('if not _nx then _parts[#_parts + 1] = string.sub(_ov, _pp) break end');
+lines.push('_parts[#_parts + 1] = string.sub(_ov, _pp, _nx - 1)');
+lines.push('_pp = _nx + 1');
+lines.push('end');
 lines.push('if #_parts < 3 then');
 lines.push('_np(_lolm(vm))');
 lines.push('else');
-lines.push('local _oRaw = _DX(_parts[1], _seed, 7)');
+lines.push('local _oRaw = _DX(_parts[1], _seed)');
 lines.push('local _OP = {}');
 lines.push('for _pair in string.gmatch(_oRaw, "[^,]+") do');
 lines.push('local _k, _v = string.match(_pair, "(%w+)=([0-9]+)")');
 lines.push('if _k then _OP[_k] = tonumber(_v) end');
 lines.push('end');
-lines.push('local _bRaw = _DX(_parts[2], _seed, 99)');
+lines.push('local _bRaw = _DX(_parts[2], _seed)');
 lines.push('local _B = {}');
 lines.push('for _tok in string.gmatch(_bRaw, "[^,]+") do _B[#_B + 1] = tonumber(_tok) end');
 lines.push('local _C = {}');
-lines.push('for _i = 3, #_parts do _C[_i - 2] = _DX(_parts[_i], _seed, _i - 2) end');
+lines.push('for _i = 3, #_parts do _C[_i - 2] = _DX(_parts[_i], _seed) end');
 lines.push('if _OP.halt == nil or _B[1] == nil then');
 lines.push('_np(_lolm(vm))');
 lines.push('else');
@@ -1282,18 +1282,8 @@ const LUAU_RUNTIME = [
 ' end',
 ' return table.concat(res)',
 'end',
-'local function _DX(data, seed, idx)',
-' local decoded = _R47(data)',
-' local res = {}',
-' local _i = 1',
-' while true do',
-' local b = string.byte(decoded, _i)',
-' if not b then break end',
-' local k = string.byte(seed, ((_i - 1 + idx * 13) % #seed) + 1)',
-' table.insert(res, string.char(_bxor(b, k)))',
-' _i = _i + 1',
-' end',
-' return table.concat(res)',
+'local function _DX(data, seed)',
+' return _kxor(_R47(_B91D(data)), seed)',
 'end',
 'local function _lol(s)',
 ' local o = s:gsub(".", function(_c) return _R47(_c) end)',
