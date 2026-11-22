@@ -98,6 +98,8 @@ return key;
 }
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const KEYWORDS = ["and", "break", "do", "else", "elseif", "end", "false", "for", "function", "goto", "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while", "print"];
+const ROBLOX_GLOBALS = {};
+["game","workspace","script","Instance","Enum","warn","pairs","ipairs","wait","spawn","delay","task","typeof","type","tostring","tonumber","select","unpack","next","pcall","xpcall","error","assert","_G","shared","getfenv","setfenv","require","math","string","table","os","coroutine","bit32","utf8","self","plugin","Vector2","Vector3","CFrame","Color3","BrickColor","UDim","UDim2","Ray","Random","TweenInfo","NumberRange","NumberSequence","ColorSequence","NumberSequenceKeypoint","ColorSequenceKeypoint","PhysicalProperties","Region3","Region3int16","Vector3int16","Faces","Axes","EnumItem","tick","time","elapsedTime","settings","UserSettings","InputHoldPassed","print","setmetatable","getmetatable","rawget","rawset","rawequal","rawlen","loadstring","newproxy","Vector3int16_proxy_lo_q","version"].forEach(function (g) { ROBLOX_GLOBALS[g] = true; });
 function randomThree(used) {
 while (true) {
 let name = "";
@@ -109,6 +111,24 @@ used[name] = true;
 return name;
 }
 }
+}
+function randomTwo(used) {
+if (!RESERVED) initReserved();
+while (true) {
+let name = LETTERS.charAt(Math.floor(Math.random() * LETTERS.length)) + LETTERS.charAt(Math.floor(Math.random() * LETTERS.length));
+if (!(name in used) && !RESERVED[name]) {
+used[name] = true;
+return name;
+}
+}
+}
+let RESERVED = null;
+function initReserved() {
+RESERVED = {};
+const sysNames = ["_XOR", "_pm0", "_np", "_k12", "_bxor", "_kxor", "_DX", "_B91C", "_B91M", "_B91D", "_R47", "_LPH", "rk", "wk"];
+for (const s of sysNames) RESERVED[s] = true;
+for (const k of KEYWORDS) RESERVED[k] = true;
+return RESERVED;
 }
 function randomJunkName(used) {
 let name;
@@ -162,7 +182,8 @@ while (i < code.length && isNameChar(code[i])) i = i + 1;
 return code.slice(start, i);
 }
 function mapName(name) {
-if (!(name in map)) map[name] = randomThree(used);
+if (KEYWORDS.indexOf(name) >= 0) return name;
+if (!(name in map)) map[name] = randomTwo(used);
 return map[name];
 }
 while (i < code.length) {
@@ -461,6 +482,15 @@ if (code[k] === "=") {
 i = i + v.length;
 }
 } else {
+let k = i + w.length;
+while (k < n && (code[k] === " " || code[k] === "\t" || code[k] === "\n" || code[k] === "\r")) k++;
+const isAssign = code[k] === "=" && code[k + 1] !== "=";
+const prevNonSpace = (function () { let p = i - 1; while (p >= 0 && (code[p] === " " || code[p] === "\t" || code[p] === "\n" || code[p] === "\r")) p--; return p >= 0 ? code[p] : ""; })();
+const stmtPos = prevNonSpace === "" || prevNonSpace === ";" || prevNonSpace === "{" || prevNonSpace === ",";
+if (isAssign && stmtPos && excluded[w] !== true && ROBLOX_GLOBALS[w] !== true && w.charAt(0) !== "_") {
+candidates.push({ name: w, headerStart: i, headerEnd: i + w.length, isGlobal: true });
+excluded[w] = false;
+}
 i = i + w.length;
 }
 } else {
@@ -483,6 +513,8 @@ let lastWord = "";
 i = 0;
 const candSet = {};
 for (const c of candidates) candSet[c.name] = true;
+const globalCandidates = {};
+for (const c of candidates) if (c.isGlobal) globalCandidates[c.name] = true;
 while (i < n) {
 const ch = code[i];
 if (ch === '"' || ch === "'") {
@@ -509,7 +541,12 @@ let p = start - 1;
 while (p >= 0 && (code[p] === " " || code[p] === "\t")) p--;
 const prevCh = p >= 0 ? code[p] : "";
 const isProp = (prevCh === "." || prevCh === ":");
+const globalSet = globalCandidates[word] === true && (prevCh === "" || prevCh === ";" || prevCh === "{" || prevCh === ",");
 if (lastWord === "local" && candSet[word] === true) {
+out.push(word + " = _pm0(nil)\n" + word + "." + writeKey[word]);
+pendingName = null;
+lastWord = "=";
+} else if (globalSet === true) {
 out.push(word + " = _pm0(nil)\n" + word + "." + writeKey[word]);
 pendingName = null;
 lastWord = "=";
@@ -1335,27 +1372,14 @@ compiled = compileVM(printed);
 compiled = null;
 }
 let body;
-if (compiled && compiled.bc.length > 2) {
+if (compiled && compiled.bc.length > 2 && !/local\s+[A-Za-z_]/.test(printed)) {
 body = emitVM(compiled);
 } else {
 const renamed = renameVars(printed);
 const withJunk = insertRandomly(renamed, makeJunkLines());
 const proxied = proxifyLocals(withJunk);
 const encoded = encodeStrings(proxied);
-const parts = [];
-let current = "";
-for (const ch of encoded) {
-if (ch === " " || ch === "\n" || ch === "\t" || ch === "\r") {
-if (current) {
-parts.push(current);
-current = "";
-}
-} else {
-current = current + ch;
-}
-}
-if (current) parts.push(current);
-const minified = parts.join(" ");
+const minified = minifyLua(encoded);
 const blocks = [["function", minified]];
 const flat = cffLPH(blocks);
 const wrapped = "do\n" + flat + "\nend";
@@ -1365,6 +1389,125 @@ return wrapHeader(body);
 }
 function collapseLua(src) {
 return flattenLua(src);
+}
+function minifyLua(code) {
+let out = "";
+let i = 0;
+const n = code.length;
+function readWhile(f) { let s = ""; while (i < n && f(code[i])) { s = s + code[i]; i = i + 1; } return s; }
+function isAlphaNum(ch) { return /[A-Za-z0-9_]/.test(ch); }
+function joinGap(prevTok, nextTok, prevCh, nextCh) {
+const pN = prevTok ? prevTok : "";
+const nN = nextTok ? nextTok : "";
+const pIsWord = pN && /^[A-Za-z0-9_]/.test(pN);
+const nIsWord = nN && /^[A-Za-z0-9_]/.test(nN);
+const pIsNum = pN && /^[0-9.]/.test(pN);
+const nIsNum = nN && /^[0-9]/.test(nN);
+const pIsStr = pN && /^["\'\]]/.test(pN);
+const nIsStr = nN && /^["\']/.test(nN);
+const pIsClose = pN && /^[\)\]\}]/.test(pN);
+const nIsOpen = nN && /^([\(\{\[]|\.\.|["\'])/.test(nN);
+const KW = ["and","break","do","else","elseif","end","false","for","function","goto","if","in","local","nil","not","or","repeat","return","then","true","until","while"];
+const pIsKw = pN && KW.indexOf(pN) >= 0;
+const nIsKw = nN && KW.indexOf(nN) >= 0;
+if (pIsWord && nIsWord) return true;
+if (pIsWord && nIsStr) return true;
+if (pIsStr && (nIsWord || nIsOpen)) return true;
+if (pIsClose && nIsOpen) return true;
+if (pIsNum && nN === "." ) return true;
+if (pN === "." && nIsNum) return false;
+if (pIsNum && nIsNum) return true;
+if (pN && nN && pN === "-" && nN === "-") return true;
+if (pN && nN && (pN === "<" || pN === ">") && nN === pN) return true;
+if (pIsKw && nN === "(") return true;
+if (pIsKw && nIsKw) return true;
+if (pIsWord && nIsKw) return true;
+if (pIsKw && nIsWord) return true;
+if (pN && nN === "(" && pIsNum) return true;
+if (pN && nN === "}" && true) return false;
+if (pN && nN === "}" && pIsStr) return false;
+if (pN === "}" && true) return false;
+if (pN && nN === "." && false) return false;
+if (pN && nN === ".." && pIsNum) return true;
+if (pN === ".." && nIsNum) return true;
+if (pN === "not" || pN === "and" || pN === "or") return true;
+if (pIsKw && nN === "\"") return true;
+if (pIsKw && nN === "[") return true;
+return false;
+}
+function appendGap(prevTok, nextTok) {
+if (out.length === 0) return;
+if (joinGap(prevTok, nextTok, out.charAt(out.length - 1), nextTok ? nextTok.charAt(0) : "")) {
+out = out + " ";
+}
+}
+let prevTok = "";
+while (i < n) {
+const ch = code[i];
+if (ch === "\n" || ch === " " || ch === "\t" || ch === "\r") {
+let lookahead = i;
+while (lookahead < n && (code[lookahead] === " " || code[lookahead] === "\n" || code[lookahead] === "\t" || code[lookahead] === "\r")) lookahead++;
+if (lookahead >= n) break;
+appendGap(prevTok, "", out);
+i = lookahead;
+} else if (ch === "-" && code[i + 1] === "-") {
+const j = code.indexOf("\n", i + 2);
+i = j < 0 ? n : j + 1;
+} else if (ch === "\"" || ch === "'") {
+const q = ch;
+let j = i + 1;
+while (j < n && code[j] !== q) {
+if (code[j] === "\\") j = j + 1;
+j = j + 1;
+}
+const tok = code.slice(i, j + 1);
+appendGap(prevTok, tok);
+out = out + tok;
+i = j + 1;
+prevTok = tok;
+} else if (ch === "[" && code[i + 1] === "[") {
+let j = code.indexOf("]]", i + 2);
+if (j < 0) j = n - 1; else j = j + 1;
+const tok = code.slice(i, j + 1);
+appendGap(prevTok, tok);
+out = out + tok;
+i = j + 1;
+prevTok = tok;
+} else if (/[A-Za-z_]/.test(ch)) {
+const start = i;
+let word = readWhile(c2 => isAlphaNum(c2));
+if (KEYWORDS.indexOf(word) >= 0 || ch === "_") {
+appendGap(prevTok, word);
+out = out + word;
+prevTok = word;
+} else {
+appendGap(prevTok, word);
+out = out + word;
+prevTok = word;
+}
+} else if (/[0-9]/.test(ch)) {
+const num = readWhile(c2 => /[0-9a-fA-FxX.eEpP+\-]/.test(c2) && !(  /[eEpP]/.test(c2) === false && (c2 === "+" || c2 === "-") ));
+out = out + num;
+prevTok = num;
+} else if (ch === "." && code[i + 1] === ".") {
+const tok = "..";
+appendGap(prevTok, tok);
+out = out + tok;
+i = i + 2;
+prevTok = tok;
+} else if (ch === "." ) {
+appendGap(prevTok, ".");
+out = out + ".";
+i = i + 1;
+prevTok = ".";
+} else {
+appendGap(prevTok, ch);
+out = out + ch;
+i = i + 1;
+prevTok = ch;
+}
+}
+return out;
 }
 if (typeof document !== "undefined") {
 const hamburger = document.getElementById("hamburger");
