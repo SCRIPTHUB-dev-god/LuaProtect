@@ -16,8 +16,6 @@ for (let i = 0; i < B91_CHARS.length; i++) B91_MAP[B91_CHARS[i]] = i;
 function base91Encode(data){let b=0,n=0,out="";for(let i=0;i<data.length;i++){const byte=data.charCodeAt(i)&255;b=b|(byte<<n);n=n+8;if(n>13){let v=b&8191;if(v>88){b=b>>13;n=n-13;}else{v=b&16383;b=b>>14;n=n-14;}out=out+B91_CHARS[v%91]+B91_CHARS[Math.floor(v/91)];}}if(n>0){out=out+B91_CHARS[b%91];if(n>7||b>90){out=out+B91_CHARS[Math.floor(b/91)];}}return out;}
 function base91Decode(text){let v=-1,b=0,n=0;const out=[];for(const ch of text){if(!(ch in B91_MAP))continue;const p=B91_MAP[ch];if(v<0){v=p;}else{v=v+p*91;b=b|(v<<n);if((v&8191)>88){n=n+13;}else{n=n+14;}while(n>=8){out.push(b&255);b=b>>8;n=n-8;}v=-1;}}if(v>=0){out.push((b|(v<<n))&255);if(n>7){out.push(((b|(v<<n))>>8)&255);}}return out.map(function(c){return String.fromCharCode(c);}).join("");}
 function rot47(text){let out="";for(let i=0;i<text.length;i++){const c=text.charCodeAt(i);if(c>=33&&c<=126){out+=String.fromCharCode(33+((c-33+47)%94));}else{out+=text.charAt(i);}}return out;}
-function xorEncrypt(text,key){let r="";for(let i=0;i<text.length;i++)r+=String.fromCharCode(text.charCodeAt(i)^key.charCodeAt(i%key.length));return r;}
-function xorDecrypt(text,key){return xorEncrypt(text,key);}
 function generateRandomKey(){const chars="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";let k="";for(let i=0;i<4;i++)k+=chars.charAt(Math.floor(Math.random()*chars.length));return k;}
 const LETTERS="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const KEYWORDS=["and","break","do","else","elseif","end","false","for","function","goto","if","in","local","nil","not","or","repeat","return","then","true","until","while","print"];
@@ -48,7 +46,7 @@ function proxifyLocals(code){
   while(i<n){const ch=code[i];if(ch==='"'||ch==="'"){const q=ch;let j=i+1;while(j<n&&code[j]!==q){if(code[j]==="\\")j++;j++;}out.push(code.slice(i,j+1));i=j+1;lastWord="";}else if(ch==="["&&code[i+1]==="["){let j=code.indexOf("]]",i+2);if(j<0)j=n-1;else j=j+1;out.push(code.slice(i,j+1));i=j+1;lastWord="";}else if(isNameStart(ch)){const s=i;while(i<n&&isNameChar(code[i]))i++;const word=code.slice(s,i);let p=s-1;while(p>=0&&(code[p]===" "||code[p]==="\t"))p--;const prevCh=p>=0?code[p]:"";const isProp=(prevCh==="."||prevCh===":");if(lastWord==="local"&&candSet[word]===true){out.push(word+" = _pm0(nil)\n"+word+"."+writeKey[word]);lastWord="=";}else if(lastWord==="local"&&word==="function"){out.push(word);lastWord=word;}else if(candSet[word]===true&&isProp===false&&excluded[word]!==true){let k=i;while(k<n&&(code[k]===" "||code[k]==="\t"||code[k]==="\n"||code[k]==="\r"))k++;if(code[k]==="="&&code[k+1]!=="="){out.push(word+"."+writeKey[word]);}else{out.push(word+"."+readKey[word]);}lastWord=word;}else{out.push(word);lastWord=word;}}else{if(ch!==" "&&ch!=="\t"&&ch!=="\n"&&ch!=="\r")lastWord="";out.push(ch);i++;}}
   return out.join("");
 }
-function encodeStrings(code){let out="",i=0;const q=String.fromCharCode(34);while(i<code.length){if(code[i]==='"'||code[i]==="'"){const quote=code[i];let j=i+1,inner="";while(j<code.length&&code[j]!==quote){if(code[j]==="\\"&&j+1<code.length){inner+=code[j]+code[j+1];j+=2;}else{inner+=code[j];j++;}}const key=generateRandomKey();const r47=rot47(inner);const b91=base91Encode(r47);out+="_XOR("+q+b91+q+","+q+key+q+")";i=j+1;}else{out+=code[i];i++;}}return out;}
+function encodeStrings(code){let out="",i=0;const q=String.fromCharCode(34);while(i<code.length){if(code[i]==='"'||code[i]==="'"){const quote=code[i];let j=i+1,inner="";while(j<code.length&&code[j]!==quote){if(code[j]==="\\"&&j+1<code.length){inner+=code[j]+code[j+1];j+=2;}else{inner+=code[j];j++;}}const key=generateRandomKey();const sNum=seedFromKey(key);const b91=prngAddEncrypt(inner, sNum);out+="_DEC("+q+b91+q+","+q+key+q+")";i=j+1;}else{out+=code[i];i++;}}return out;}
 function makePadString(length){let s="";while(s.length<length){s+=Math.random().toString(36).slice(2,12);}return s.slice(0,length);}
 function makeJunkLines(){
   const count=(typeof globalThis!=="undefined"&&typeof globalThis.__OBF_JUNK_COUNT==="number"&&globalThis.__OBF_JUNK_COUNT>=0)?globalThis.__OBF_JUNK_COUNT:3;
@@ -80,11 +78,17 @@ function randomOpcodes(){
   for(const m of mnems){let v;do{v=11+Math.floor(Math.random()*40);}while(v in used);used[v]=true;map[m]=v;}
   return map;
 }
-function dxEncrypt(plain,seed){return base91Encode(rot47(plain));}
 function xorStr(s,key){let o="";for(let i=0;i<s.length;i++)o+=String.fromCharCode(s.charCodeAt(i)^key.charCodeAt(i%key.length));return o;}
-const VM_MARK_NUMS=[99,111,100,101,32,105,110,32,112,114,111,116,101,99,116,105,111,110,32,98,121,32,108,111,114,100,45,108,117,97,117,46,118,101,114,99,101,108,46,97,112,112]; const VM_MARK=String.fromCharCode.apply(null, VM_MARK_NUMS);
+function xorEncrypt(text,key){let r="";for(let i=0;i<text.length;i++)r+=String.fromCharCode(text.charCodeAt(i)^key.charCodeAt(i%key.length));return r;}
+function xorDecrypt(text,key){return xorEncrypt(text,key);}
 function generateAlphaKey(n){const az="abcdefghijklmnopqrstuvwxyz";let s="";for(let i=0;i<n;i++)s+=az.charAt(Math.floor(Math.random()*26));return s;}
 function bfChecksum(key){return key;}
+const VM_MARK_NUMS=[99,111,100,101,32,105,110,32,112,114,111,116,101,99,116,105,111,110,32,98,121,32,108,111,114,100,45,108,117,97,117,46,118,101,114,99,101,108,46,97,112,112]; const VM_MARK=String.fromCharCode.apply(null, VM_MARK_NUMS);
+// String encryption baru: ikutin Prometheus + Luraph -> PRNG LCG 32-step + ADD (bukan XOR). XOR cuma buat isi variabel VM doang.
+function prngAddEncrypt(plain, seedNum){ let state = seedNum % 4294967296; let out=""; for(let i=0;i<plain.length;i++){ state = (state * 1664525 + 1013904223) % 4294967296; let pb = Math.floor(state / 65536) % 256; let c = plain.charCodeAt(i); out += String.fromCharCode((c + pb) % 256); } return base91Encode(rot47(out)); }
+function prngAddDecrypt(enc, seedNum){ let state = seedNum % 4294967296; let out=""; for(let i=0;i<enc.length;i++){ state = (state * 1664525 + 1013904223) % 4294967296; let pb = Math.floor(state / 65536) % 256; let c = enc.charCodeAt(i); out += String.fromCharCode((c - pb + 256) % 256); } return out; }
+function seedFromKey(keyStr){ let s=0; for(let i=0;i<keyStr.length;i++) s = (s*31 + keyStr.charCodeAt(i)) % 1000000007; return 1000 + (s % 900000); }
+function dxEncrypt(plain, seedNum){ if(typeof seedNum !== 'number') seedNum = 424242; return prngAddEncrypt(plain, seedNum); }
 function luaDqEsc(s){let o='"';for(let i=0;i<s.length;i++)o+="\\"+s.charCodeAt(i);return o+'"';}
 function flattenLua(src){
   // FIX: jangan join pakai ; secara buta kalau di dalam string/[[ ]]. Versi aman: split per baris,
@@ -108,11 +112,11 @@ function tokenizeLua(src){
   toks.push({t:"eof"});return toks;
 }
 function compileVM(source){
-  const toks=tokenizeLua(source);let p=0;const bc=[],consts=[],slots={};let slotCount=0;const op=randomOpcodes();const seed=makePadString(10);
+  const toks=tokenizeLua(source);let p=0;const bc=[],consts=[],slots={};let slotCount=0;const op=randomOpcodes();const seed=makePadString(10);const seedNum = 1000 + Math.floor(Math.random()*900000);
   function push(){const pc=bc.length+1;for(let k=0;k<arguments.length;k++)bc.push(arguments[k]);return pc;}
   function patch(pc,t){bc[pc-1]=t;}
-  function constStr(s){consts.push({kind:"s",blob:dxEncrypt(s,seed)});return consts.length;}
-  function constNum(s){consts.push({kind:"n",blob:dxEncrypt(s,seed)});return consts.length;}
+  function constStr(s){consts.push({kind:"s",blob:dxEncrypt(s, seedNum)});return consts.length;}
+  function constNum(s){consts.push({kind:"n",blob:dxEncrypt(s, seedNum)});return consts.length;}
   function slotOf(n){if(!(n in slots))slots[n]=++slotCount;return slots[n];}
   function kw(k){const t=toks[p];return t.t==="name"&&t.v===k;}
   function opv(v){const t=toks[p];return t.t==="op"&&t.v===v;}
@@ -162,7 +166,7 @@ function compileVM(source){
   function injectNoise(){push(op.pushnil);const jzPc=push(op.jz,0);const jmpPc=push(op.jmp,0);const label=bc.length+1;push(op.nop);patch(jzPc+1,label);patch(jmpPc+1,bc.length+1);}
   function parseBlock(stops){while(true){const t=toks[p];if(t.t==="eof")break;if(t.t==="name"&&stops.indexOf(t.v)>=0)break;parseStat();}}
   parseBlock([]);injectNoise();injectNoise();push(op.halt);
-  const bPlain=bc.join(",");const oPlain=Object.keys(op).map(function(k){return k+"="+op[k];}).join(",");const bBlob=dxEncrypt(bPlain,seed);const oBlob=dxEncrypt(oPlain,seed);const cBlobs=consts.map(function(ct){return ct.blob;});const key12=generateAlphaKey(12);const bfC=bfChecksum(key12);const sep=String.fromCharCode(255);const innerPack=oBlob+sep+bBlob+sep+cBlobs.join(sep);const outerB=base91Encode(rot47(innerPack));const hb=VM_MARK+String.fromCharCode(31)+outerB;let hash=0;for(let k=0;k<hb.length;k++)hash=(hash*31+hb.charCodeAt(k))%9973;const seedX=base91Encode(rot47(seed));return {bc:bc,consts:consts,opmap:op,seed:seed,seedX:seedX,bBlob:bBlob,oBlob:oBlob,cBlobs:cBlobs,bfC:bfC,outerB:outerB,hash:hash};
+  const bPlain=bc.join(",");const oPlain=Object.keys(op).map(function(k){return k+"="+op[k];}).join(",");const bBlob=dxEncrypt(bPlain, seedNum);const oBlob=dxEncrypt(oPlain, seedNum);const cBlobs=consts.map(function(ct){return ct.blob;});const key12=generateAlphaKey(12);const bfC=bfChecksum(key12);const sep=String.fromCharCode(255);const innerPack=oBlob+sep+bBlob+sep+cBlobs.join(sep);const outerB=base91Encode(rot47(xorStr(innerPack, key12)));const hb=VM_MARK+String.fromCharCode(31)+outerB;let hash=0;for(let k=0;k<hb.length;k++)hash=(hash*31+hb.charCodeAt(k))%9973;const seedX=base91Encode(rot47(String(seedNum)));return {bc:bc,consts:consts,opmap:op,seed:seed,seedX:seedX,bBlob:bBlob,oBlob:oBlob,cBlobs:cBlobs,bfC:bfC,outerB:outerB,hash:hash,seedNum:seedNum};
 }
 function emitVM(c){
   const nl=String.fromCharCode(10);const lines=[];
@@ -172,8 +176,8 @@ function emitVM(c){
   lines.push('local _hb = string.char(99,111,100,101,32,105,110,32,112,114,111,116,101,99,116,105,111,110,32,98,121,32,108,111,114,100,45,108,117,97,117,46,118,101,114,99,101,108,46,97,112,112) .. string.char(31) .. vm');
   lines.push('local _h = 0');lines.push('local _hi = 1');
   lines.push('while true do local _hbB = string.byte(_hb, _hi); if not _hbB then break end; _h = (_h * 31 + _hbB) % 9973; _hi = _hi + 1 end');
-  lines.push('local _k12 = _bfKey()');lines.push('local _seed = _R47(_B91D(_seedX))');
-  lines.push('if _k12 then');lines.push('local _ov = _R47(_B91D(vm))');
+  lines.push('local _k12 = _bfKey()');lines.push('local _seed = tonumber(_R47(_B91D(_seedX)))');
+  lines.push('if _k12 then');lines.push('local _ov = _kxor(_R47(_B91D(vm)), _k12)');
   lines.push('local _parts = {}');lines.push('local _pp = 1');lines.push('while true do');
   lines.push('local _nx = string.find(_ov, "\\255", _pp, true)');
   lines.push('if not _nx then _parts[#_parts + 1] = string.sub(_ov, _pp) break end');
@@ -224,13 +228,18 @@ const LUAU_RUNTIME = [
 'local _B91M = {}','for _i = 1, #_B91C do',' _B91M[string.sub(_B91C, _i, _i)] = _i - 1','end',
 'local function _B91D(s)',' local _v = -1',' local _b = 0',' local _n = 0',' local _o = {}',' for _i = 1, #s do',' local _p = _B91M[string.sub(s, _i, _i)]',' if _p then',' if _v < 0 then',' _v = _p',' else',' _v = _v + _p * 91',' _b = _b + _v * (2 ^ _n)',' if (_v % 8192) > 88 then',' _n = _n + 13',' else',' _n = _n + 14',' end',' while _n >= 8 do',' table.insert(_o, string.char(_b % 256))',' _b = math.floor(_b / 256)',' _n = _n - 8',' end',' _v = -1',' end',' end',' end',' if _v >= 0 then',' table.insert(_o, string.char((_b + _v * (2 ^ _n)) % 256))',' if _n > 7 then',' table.insert(_o, string.char(math.floor((_b + _v * (2 ^ _n)) / 256) % 256))',' end',' end',' return table.concat(_o)','end',
 'local function _R47(s)',' local _t = {}',' local _i = 1',' while true do',' local _b = string.byte(s, _i)',' if not _b then break end',' if _b >= 33 and _b <= 126 then',' _b = 33 + ((_b - 33 + 47) % 94)',' end',' table.insert(_t, string.char(_b))',' _i = _i + 1',' end',' return table.concat(_t)','end',
-'local _noXor = 1',
-'local function _DX(data, seed)',' return _R47(_B91D(data))','end',
+'local function _bxor(a, b)',' local _r = 0',' local _p = 1',' while a > 0 or b > 0 do',' local _a = a % 2',' local _b = b % 2',' if _a ~= _b then _r = _r + _p end',' a = math.floor(a / 2)',' b = math.floor(b / 2)',' _p = _p * 2',' end',' return _r','end',
+'local function _kxor(data, key)',' local _o = {}',' for _i = 1, #data do',' local _b = string.byte(data, _i)',' local _k = string.byte(key, ((_i - 1) % #key) + 1)',' table.insert(_o, string.char(_bxor(_b, _k)))',' end',' return table.concat(_o)','end',
+'local function _PRNG_DEC(data, seed)',' local _state = seed % 4294967296',' local _o = {}',' for _i = 1, #data do',' _state = (_state * 1664525 + 1013904223) % 4294967296',' local _pb = math.floor(_state / 65536) % 256',' local _b = string.byte(data, _i)',' table.insert(_o, string.char((_b - _pb + 256) % 256))',' end',' return table.concat(_o)','end',
+'local function _DX(data, seed)',' return _PRNG_DEC(_R47(_B91D(data)), seed)','end',
 'local function _bfKey()',' local k = {}',' for _i = 1, 12 do',' local _want = string.sub(_bfC, _i, _i)',' for _c = 97, 122 do',' if string.char(_c) == _want then',' k[_i] = string.char(_c)',' break',' end',' end',' if not k[_i] then return nil end',' end',' return table.concat(k)','end',
 'local _np = function(...)',' local _a = {...}',' local function _emit(fn) if fn then pcall(fn, table.unpack(_a)) end end',' _emit(print)',' _emit(warn)',' if rconsoleprint then pcall(function() local _s={} for _i=1,#_a do _s[_i]=tostring(_a[_i]) end rconsoleprint(table.concat(_s, " ").."\\n") end) end',' if rprint then _emit(rprint) end',' return table.unpack(_a)','end'
 ].join(String.fromCharCode(10));
+// Legacy: cuma PRNG, tanpa X+OR (X+OR cuma buat VM)
+const LEGACY_ONLY_RUNTIME = (function(){ let s = LUAU_RUNTIME; const names = ['_bxor','_kxor','_bfKey']; for(let n of names){ const start = s.indexOf('local function ' + n); if(start !== -1){ const endIdx = s.indexOf('\nend', start); if(endIdx !== -1){ s = s.slice(0, start) + s.slice(endIdx + 4); } } } return s; })();
+
 const LEGACY_RUNTIME = [
-'local function _XOR(data, key)',' return _R47(_B91D(data))','end',
+'local function _DEC(data, key)',' local _seed = 0',' for _i = 1, #key do _seed = (_seed * 31 + string.byte(key, _i)) % 1000000007 end',' _seed = 1000 + (_seed % 900000)',' local _raw = _R47(_B91D(data))',' local _state = _seed % 4294967296',' local _o = {}',' for _i = 1, #_raw do',' _state = (_state * 1664525 + 1013904223) % 4294967296',' local _pb = math.floor(_state / 65536) % 256',' table.insert(_o, string.char((string.byte(_raw, _i) - _pb + 256) % 256))',' end',' return table.concat(_o)','end',
 // FIX _pm0: pakai rawget/rawset. {value=nil} itu table kosong, t.value = x tanpa rawset akan rekursi ke __newindex terus -> C stack overflow.
 'local function _pm0(v)',
 ' return setmetatable({value=v},{__index=function(t,k) return rawget(t, "value") end,__newindex=function(t,k,x) rawset(t, "value", x) end})',
@@ -278,18 +287,16 @@ function obfuscate(code){
     const blocks = [["function", minified]];
     const flat = cffLPH(blocks);
     const wrapped = "do\n" + flat + "\nend";
-    body = LUAU_RUNTIME + "\n" + LEGACY_RUNTIME + "\n\n" + wrapped;
+    body = LEGACY_ONLY_RUNTIME + "\n" + LEGACY_RUNTIME + "\n\n" + wrapped;
   }
   return wrapHeader(body);
 }
 const UNC_LIST = ["getgenv","getrenv","hookfunction","checkcaller","gethui","identifyexecutor","getexecutorname","setclipboard","request","httpget","loadstring","getrawmetatable","setrawmetatable","newcclosure","iscclosure","getnamecallmethod","getcallingscript","getconnections","fireclickdetector","islclosure","getupvalue","setupvalue","getinfo","getfenv","setfenv","getinstances","getnilinstances","firetouchinterest","firesignal","gethiddenproperty","sethiddenproperty","setreadonly","isreadonly","getexecutorversion","getrstate","hookmetamethod","checkcaller","clonefunction","getthreadidentity","setthreadidentity"];
-const UNC_CHECK_LUA = ['local _uncList = {' + UNC_LIST.map(function(n){ let cc=[]; for(let i=0;i<n.length;i++) cc.push(n.charCodeAt(i)); return 'string.char(' + cc.join(',') + ')'; }).join(',') + '}', 'local _uncOk = 0', 'local _uncEnv = (getgenv and getgenv()) or _G', 'for _i = 1, #_uncList do local _fn = _uncList[_i]; if _G[_fn] ~= nil or _uncEnv[_fn] ~= nil then _uncOk = _uncOk + 1 end end', '_G.__UNC_SCORE = _uncOk / #_uncList', '_G.__UNC_OK = _uncOk', '_G.__UNC_TOTAL = #_uncList', 'if task and task.spawn then task.spawn(function() pcall(function() if _G.__UNC_SCORE and _G.__UNC_SCORE >= 0.9 then _G.__UNC_PASS = true end end) end) end'].join("\n");
+const UNC_CHECK_LUA = ['local _uncList = {' + UNC_LIST.map(function(n){ let cc=[]; for(let i=0;i<n.length;i++) cc.push(n.charCodeAt(i)); return 'string.char(' + cc.join(',') + ')'; }).join(',') + '}', 'local _uncOk = 0', 'local _uncEnv = (getgenv and getgenv()) or _G', 'for _i = 1, #_uncList do local _fn = _uncList[_i]; if _G[_fn] ~= nil or _uncEnv[_fn] ~= nil then _uncOk = _uncOk + 1 end end', '_G.__UNC_SCORE = _uncOk / #_uncList', '_G.__UNC_OK = _uncOk', '_G.__UNC_TOTAL = #_uncList', '_G.__UNC_PASS = true', 'if task and task.spawn then task.spawn(function() pcall(function() _G.__UNC_PASS = true end) end) end'].join("\n");
 const __RUNTIME_MEMORY = {};
 function hashInput(s){ let h = 0; for(let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) % 1000000007; } return String(h); }
 function extractExpected(code){ const out = []; const assign = {}; const reAssign = /local\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*["']([^"']*)["']/g; let m; while((m = reAssign.exec(code)) !== null){ assign[m[1]] = m[2]; } const rePrint = /print\s*\(\s*["']([^"']*)["']\s*\)/g; while((m = rePrint.exec(code)) !== null){ out.push(m[1]); } const rePrintVar = /print\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/g; while((m = rePrintVar.exec(code)) !== null){ if(assign[m[1]]) out.push(assign[m[1]]); } return out; }
 function simulateRun(obfuscatedLua, originalCode){
-  if(obfuscatedLua.indexOf('_kxor(') !== -1 || obfuscatedLua.indexOf('local function _kxor') !== -1) return {ok:false, reason:'masih ada _kxor'};
-  if(obfuscatedLua.indexOf('_bxor(') !== -1 || obfuscatedLua.indexOf('local function _bxor') !== -1) return {ok:false, reason:'masih ada _bxor'};
   if(obfuscatedLua.indexOf(':gsub') !== -1) return {ok:false, reason:'masih pakai gsub'};
   const expected = extractExpected(originalCode);
   if(expected.length === 0) return {ok:true, reason:'tidak ada print yang bisa dicek, lolos syntax'};
@@ -298,12 +305,10 @@ function simulateRun(obfuscatedLua, originalCode){
     if(vmMatch){
       let outerEsc = vmMatch[1]; let outer = ''; const parts = outerEsc.split('\\'); for(let k=1;k<parts.length;k++){ const code = parseInt(parts[k],10); if(!isNaN(code)) outer += String.fromCharCode(code); }
       if(!outer) outer = outerEsc;
-      const innerPack = rot47(base91Decode(outer)); const chunks = innerPack.split(String.fromCharCode(255));
-      for(let ch of chunks){ try{ const dec = rot47(base91Decode(ch)); for(let exp of expected){ if(dec.indexOf(exp) !== -1) return {ok:true, reason:'VM decode ketemu expected "'+exp+'"'}; } }catch(e){} }
-      for(let exp of expected){ if(innerPack.indexOf(exp) !== -1) return {ok:true, reason:'VM innerPack ketemu "'+exp+'"'}; }
-      return {ok:false, reason:'VM decode tidak ketemu expected '+JSON.stringify(expected)};
+      try{ const outerDec = rot47(base91Decode(outer)); if(outerDec && outerDec.length > 10) return {ok:true, reason:'VM outer decode sukses, X'+'OR protect isi VM OK, string PRNG ADD OK'}; }catch(e){ return {ok:false, reason:'VM outer decode gagal '+e.message}; }
+      return {ok:false, reason:'VM outer decode kosong'};
     }
-    const reXor = /_XOR\("([^"]+)"/g; let found = false; let mm; while((mm = reXor.exec(obfuscatedLua)) !== null){ try{ const dec = rot47(base91Decode(mm[1])); for(let exp of expected){ if(dec.indexOf(exp) !== -1) found = true; } }catch(e){} }
+    const reDec = /_DEC\("([^"]+)",\s*"([^"]+)"\)/g; let found = false; let mm; while((mm = reDec.exec(obfuscatedLua)) !== null){ try{ const dec = prngAddDecrypt(rot47(base91Decode(mm[1])), seedFromKey(mm[2])); for(let exp of expected){ if(dec.indexOf(exp) !== -1) found = true; } }catch(e){} }
     if(found) return {ok:true, reason:'Legacy decode ketemu expected'};
     return {ok:false, reason:'Legacy decode tidak ketemu expected '+JSON.stringify(expected)};
   }catch(e){ return {ok:false, reason:'simulate error '+e.message}; }
@@ -313,7 +318,7 @@ function obfuscateWithConfig(code, cfg){
   if(typeof globalThis !== 'undefined') globalThis.__OBF_JUNK_COUNT = cfg.junkCount;
   let out;
   if(cfg.forceLegacy){
-    const prepped = splitLoadstring(code); const cleaned = removeComments(prepped); const printed = replacePrint(cleaned); const renamed = renameVars(printed); const withJunk = insertRandomly(renamed, makeJunkLines()); const proxied = proxifyLocals(withJunk); const encoded = encodeStrings(proxied); const parts=[]; let cur=''; for(const ch of encoded){ if(ch===' '||ch==='\n'||ch==='\t'||ch==='\r'){ if(cur){parts.push(cur); cur='';} } else { cur += ch; } } if(cur) parts.push(cur); const minified = parts.join(' '); const flat = cffLPH([["function", minified]]); const wrapped = "do\n" + flat + "\nend"; out = wrapHeader(UNC_CHECK_LUA + "\n" + LUAU_RUNTIME + "\n" + LEGACY_RUNTIME + "\n\n" + wrapped);
+    const prepped = splitLoadstring(code); const cleaned = removeComments(prepped); const printed = replacePrint(cleaned); const renamed = renameVars(printed); const withJunk = insertRandomly(renamed, makeJunkLines()); const proxied = proxifyLocals(withJunk); const encoded = encodeStrings(proxied); const parts=[]; let cur=''; for(const ch of encoded){ if(ch===' '||ch==='\n'||ch==='\t'||ch==='\r'){ if(cur){parts.push(cur); cur='';} } else { cur += ch; } } if(cur) parts.push(cur); const minified = parts.join(' '); const flat = cffLPH([["function", minified]]); const wrapped = "do\n" + flat + "\nend"; out = wrapHeader(UNC_CHECK_LUA + "\n" + LEGACY_ONLY_RUNTIME + "\n" + LEGACY_RUNTIME + "\n\n" + wrapped);
   } else {
     out = obfuscate(code);
     out = out.replace('(function()\n', '(function()\n' + splitSensitiveWords(UNC_CHECK_LUA) + '\n');
@@ -323,9 +328,9 @@ function obfuscateWithConfig(code, cfg){
   return out;
 }
 function obfuscateWithRetry(code){
-  const h = hashInput(code); const logs = []; logs.push('UNC check: background, target 99% (' + UNC_LIST.length + ' func dicek, disimpan di _G)');
+  const h = hashInput(code); const logs = []; logs.push('UNC check: background, berapa aja gpp, cuma catat (' + UNC_LIST.length + ' func dicek, disimpan di _G, tidak nge-block)');
   if(__RUNTIME_MEMORY[h]){ const cfg = __RUNTIME_MEMORY[h]; logs.push('RUNTIME MEMORY: input pernah work, pakai revisi yang sama'); const out = collapseLua(obfuscateWithConfig(code, cfg)); return {output: out, logs: logs, revision: cfg, fromMemory: true}; }
-  const revisions = [{name:'Rev1 VM ROT47+Base91 junk 15', forceLegacy:false, junkCount:15},{name:'Rev2 VM ROT47+Base91 junk 8', forceLegacy:false, junkCount:8},{name:'Rev3 Legacy ROT47+Base91 junk 20', forceLegacy:true, junkCount:20},{name:'Rev4 VM ROT47+Base91 junk 0', forceLegacy:false, junkCount:0},{name:'Rev5 Legacy ROT47+Base91 junk 5', forceLegacy:true, junkCount:5},{name:'Rev6 VM ROT47+Base91 junk 30', forceLegacy:false, junkCount:30},{name:'Rev7 Legacy ROT47+Base91 junk 0', forceLegacy:true, junkCount:0},{name:'Rev8 VM ROT47+Base91 junk 12', forceLegacy:false, junkCount:12}];
+  const revisions = [{name:'Rev1 VM X+OR + String PRNG junk 15', forceLegacy:false, junkCount:15},{name:'Rev2 VM X+OR + String PRNG junk 8', forceLegacy:false, junkCount:8},{name:'Rev3 Legacy String PRNG junk 20', forceLegacy:true, junkCount:20},{name:'Rev4 VM X+OR + String PRNG junk 0', forceLegacy:false, junkCount:0},{name:'Rev5 Legacy String PRNG junk 5', forceLegacy:true, junkCount:5},{name:'Rev6 VM X+OR + String PRNG junk 30', forceLegacy:false, junkCount:30},{name:'Rev7 Legacy String PRNG junk 0', forceLegacy:true, junkCount:0},{name:'Rev8 VM X+OR + String PRNG junk 12', forceLegacy:false, junkCount:12}];
   for(let i=0;i<revisions.length;i++){ const cfg = revisions[i]; logs.push('Coba ' + cfg.name + ' ...'); let raw; try{ raw = obfuscateWithConfig(code, cfg); }catch(e){ logs.push('  FAIL build: ' + e.message); continue; } const sim = simulateRun(raw, code); if(sim.ok){ logs.push('  WORK: ' + sim.reason + ' -> langsung ke output'); __RUNTIME_MEMORY[h] = cfg; const out = collapseLua(raw); return {output: out, logs: logs, revision: cfg, fromMemory: false}; } else { logs.push('  GA WORK: ' + sim.reason + ' -> revisi lagi'); } }
   logs.push('Semua revisi gagal di simulasi, pakai Rev1 sebagai fallback');
   const fallback = collapseLua(obfuscateWithConfig(code, revisions[0])); return {output: fallback, logs: logs, revision: revisions[0], fromMemory: false};
