@@ -4,7 +4,10 @@ for (let _i = 0; _i < B91_CHARS.length; _i++) {
     B91_MAP[B91_CHARS[_i]] = _i;
 }
 function base91Encode(data) {
-    const bytes = new TextEncoder().encode(data);
+    const bytes = [];
+    for (let _bi = 0; _bi < data.length; _bi++) {
+        bytes.push(data.charCodeAt(_bi) & 255);
+    }
     let b = 0;
     let n = 0;
     let out = "";
@@ -67,7 +70,11 @@ function base91Decode(text) {
             out.push(((b | (v << n)) >> 8) & 255);
         }
     }
-    return new TextDecoder().decode(new Uint8Array(out));
+    let _dec = "";
+    for (let _di = 0; _di < out.length; _di++) {
+        _dec += String.fromCharCode(out[_di] & 255);
+    }
+    return _dec;
 }
 function rot47(text) {
     let out = "";
@@ -456,13 +463,17 @@ function makePadString(length) {
     }
     return s;
 }
+function makeJunkRot91() {
+    const raw = makePadString(12 + Math.floor(Math.random() * 20));
+    return base91Encode(rot47(raw));
+}
 function makeJunkDoBlocks() {
     const count = 2 + Math.floor(Math.random() * 2);
     let out = "";
     for (let k = 0; k < count; k++) {
-        const s1 = makePadString(8 + Math.floor(Math.random() * 16));
-        const s2 = makePadString(8 + Math.floor(Math.random() * 16));
-        out = out + "do local _j" + k + " = \"" + s1 + "\" local _k" + k + " = \"" + s2 + "\" _j" + k + " = _j" + k + " .. _k" + k + " end" + String.fromCharCode(10);
+        const j1 = makeJunkRot91();
+        const j2 = makeJunkRot91();
+        out = out + "do local _j" + k + " = _R47(_B91D(\"" + j1 + "\")) local _k" + k + " = _R47(_B91D(\"" + j2 + "\")) _j" + k + " = _j" + k + " .. _k" + k + " end" + String.fromCharCode(10);
     }
     return out;
 }
@@ -927,14 +938,13 @@ function compileVM(source) {
     const cBlobs = consts.map(function (ct) { return ct.blob; });
     const key12 = generateAlphaKey(12);
     const bfC = bfChecksum(key12);
-    const kR = base91Encode(rot47(key12));
     const sep = String.fromCharCode(255);
     const innerPack = oBlob + sep + bBlob + sep + cBlobs.join(sep);
-    const outerB = rot47(xorStr(innerPack, key12));
-    const keyB = generateAlphaKey(12);
-    const vmDouble = base91Encode(rot47(xorStr(outerB, keyB)));
+    const vmSingle = base91Encode(rot47(xorStr(innerPack, key12)));
+    const junk1 = base91Encode(rot47(makePadString(16)));
+    const junk2 = base91Encode(rot47(makePadString(16)));
     const t0 = Math.floor(Date.now() / 60000);
-    const hb = VM_MARK + String.fromCharCode(31) + vmDouble;
+    const hb = VM_MARK + String.fromCharCode(31) + vmSingle;
     let hash = 0;
     for (let k = 0; k < hb.length; k++) hash = (hash * 31 + hb.charCodeAt(k)) % 9973;
     const seedX = xorStr(seed, String(hash));
@@ -948,23 +958,24 @@ function compileVM(source) {
         oBlob: oBlob,
         cBlobs: cBlobs,
         bfC: bfC,
-        kR: kR,
-        outerB: outerB,
+        key12: key12,
+        vmSingle: vmSingle,
+        junk1: junk1,
+        junk2: junk2,
         hash: hash,
-        keyA: key12,
-        keyB: keyB,
-        vmDouble: vmDouble,
         t0: t0
     };
 }
 function emitVM(c) {
     const nl = String.fromCharCode(10);
     const lines = [];
-    lines.push('local vm = "' + c.vmDouble + '"');
+    lines.push('local vm = "' + c.vmSingle + '"');
+    lines.push('local _junk1 = _R47(_B91D("' + c.junk1 + '"))');
+    lines.push('local _junk2 = _R47(_B91D("' + c.junk2 + '"))');
+    lines.push('local _junk = _junk1 .. _junk2');
     lines.push('local _M0=[[' + VM_MARK + ']]');
-    lines.push('_bfC = ' + luaDqEsc(rot47(c.keyB)));
+    lines.push('_bfC = ' + luaDqEsc(rot47(c.key12)));
     lines.push('local _seedX = ' + luaDqEsc(c.seedX));
-    lines.push('local _kR = "' + c.kR + '"');
     lines.push('local _t0 = ' + c.t0);
     lines.push('local _hb = _M0 .. "\\31" .. vm');
     lines.push('local _h = 0');
@@ -972,13 +983,11 @@ function emitVM(c) {
     lines.push('while true do local _hbB = string.byte(_hb, _hi); if not _hbB then break end; _h = (_h * 31 + _hbB) % 9973; _hi = _hi + 1 end');
     lines.push('local _seedBase = _kxor(_seedX, tostring(_h))');
     lines.push('local _seed = _seedBase');
-    lines.push('if type(task) == "table" and task.wait then local _co2 = coroutine.create(function() while true do task.wait(60) if type(os) == "table" and os.time then _mn = math.floor(os.time() / 60) end _seed = _kxor(_seedX, tostring(_h + _mn)) _k12 = _bfKey() end end) coroutine.resume(_co2) end');
+    lines.push('if _waitFn then local _co2 = coroutine.create(function() while true do _waitFn(60) if type(os) == "table" and os.time then _mn = math.floor(os.time() / 60) end _seed = _kxor(_seedX, tostring(_h + _mn)) _k12 = _bfKey() end end) coroutine.resume(_co2) end');
     lines.push('if _M0 ~= [[' + VM_MARK + ']] then _np(_lolm(vm)) end');
     lines.push('_k12 = _bfKey()');
     lines.push('if _k12 then');
-    lines.push('local _kA = _R47(_B91D(_kR))');
-    lines.push('local _outerB = _kxor(_R47(_B91D(vm)), _k12)');
-    lines.push('local _ov = _kxor(_R47(_outerB), _kA)');
+    lines.push('local _ov = _kxor(_R47(_B91D(vm)), _k12)');
     lines.push('local _parts = {}');
     lines.push('for _seg in string.gmatch(_ov, "[^\\255]+") do _parts[#_parts + 1] = _seg end');
     lines.push('if #_parts < 3 then');
@@ -1024,7 +1033,7 @@ function emitVM(c) {
     lines.push('elseif _o == _OP.le then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = (_a <= _b); _pc = _pc + 1');
     lines.push('elseif _o == _OP.ge then local _b = table.remove(_ST); local _a = table.remove(_ST); _ST[#_ST + 1] = (_a >= _b); _pc = _pc + 1');
     lines.push('elseif _o == _OP.neg then local _a = table.remove(_ST); _ST[#_ST + 1] = -_a; _pc = _pc + 1');
-    lines.push('elseif _o == _OP.call then local _n = _B[_pc + 1]; local _a = {}; for _k = _n, 1, -1 do _a[_k] = table.remove(_ST) end; _E.np(table.unpack(_a)); _pc = _pc + 2');
+    lines.push('elseif _o == _OP.call then local _n = _B[_pc + 1]; local _a = {}; for _k = _n, 1, -1 do _a[_k] = table.remove(_ST) end; _E.np(_unpack(_a)); _pc = _pc + 2');
     lines.push('elseif _o == _OP.jmp then _pc = _B[_pc + 1]');
     lines.push('elseif _o == _OP.jz then local _v = table.remove(_ST); if not _v then _pc = _B[_pc + 1] else _pc = _pc + 2 end');
     lines.push('elseif _o == _OP.forinit then local _st = table.remove(_ST); local _lm = table.remove(_ST); local _sv = table.remove(_ST); _SL[_B[_pc + 1]] = _sv; _SL[_B[_pc + 2]] = _lm; _SL[_B[_pc + 3]] = _st; _pc = _pc + 4');
@@ -1048,6 +1057,11 @@ const LUAU_RUNTIME = [
 'local _tv = 0',
 'if type(os) == "table" and os.time then _tv = os.time() end',
 '_mn = math.floor(_tv / 60)',
+'local _unpack = table.unpack or unpack',
+'local _isStudio = false',
+'if type(game) ~= "nil" then if type(game) == "userdata" then _isStudio = true end end',
+'local _waitFn = nil',
+'if type(task) == "table" and task.wait then _waitFn = task.wait elseif type(wait) == "function" then _waitFn = wait end',
 'local _B91C = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_-{|}~" .. string.char(39)',
 'local _B91M = {}',
 'for _i = 1, #_B91C do',
@@ -1164,10 +1178,10 @@ const LUAU_RUNTIME = [
 '    end',
 '    return table.concat(k)',
 'end',
-'if type(task) == "table" and task.wait then',
+'if _waitFn then',
 '    local _co = coroutine.create(function()',
 '        while true do',
-'            task.wait(60)',
+'            _waitFn(60)',
 '            if type(os) == "table" and os.time then _mn = math.floor(os.time() / 60) end',
 '        end',
 '    end)',
@@ -1186,7 +1200,7 @@ const LUAU_RUNTIME = [
 'local _np = function(...)',
 '    local _f = print',
 '    local _a = {...}',
-'    return _f(table.unpack(_a))',
+'    return _f(_unpack(_a))',
 'end'
 ].join(String.fromCharCode(10));
 function obfuscate(code) {
