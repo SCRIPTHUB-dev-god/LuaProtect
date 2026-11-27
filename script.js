@@ -88,6 +88,103 @@ function rot47(text) {
     }
     return out;
 }
+function makeHexKey() {
+    const hexChars = "0123456789ABCDEF";
+    let h = "";
+    h += "123456789".charAt(Math.floor(Math.random() * 9));
+    for (let i = 0; i < 6; i++) {
+        h += hexChars.charAt(Math.floor(Math.random() * 16));
+    }
+    return { str: "0x" + h, num: parseInt(h, 16) };
+}
+function xorHexJS(data, hexNum) {
+    let out = "";
+    for (let i = 0; i < data.length; i++) {
+        const k = Math.floor(hexNum / Math.pow(256, i % 4)) % 256;
+        out += String.fromCharCode(data.charCodeAt(i) ^ k);
+    }
+    return out;
+}
+function dxEncryptHex(plain, seed, idx, hexNum) {
+    let x = "";
+    for (let i = 0; i < plain.length; i++) {
+        const b = plain.charCodeAt(i);
+        const k = seed.charCodeAt((i + idx * 13) % seed.length);
+        x += String.fromCharCode(b ^ k);
+    }
+    x = xorHexJS(x, hexNum);
+    return rot47(x);
+}
+function dxDecryptHex(data, seed, idx, hexNum) {
+    const r = rot47(data);
+    const hx = xorHexJS(r, hexNum);
+    let out = "";
+    for (let i = 0; i < hx.length; i++) {
+        const b = hx.charCodeAt(i);
+        const k = seed.charCodeAt((i + idx * 13) % seed.length);
+        out += String.fromCharCode(b ^ k);
+    }
+    return out;
+}
+function runJSVM(compiled) {
+    const prints = [];
+    try {
+        const seed = compiled.seed;
+        const hexNum = compiled.hexNum;
+        const oRaw = dxDecryptHex(compiled.oBlob, seed, 7, hexNum);
+        const op = {};
+        const pairs = oRaw.split(",");
+        for (const pr of pairs) {
+            const m = pr.match(/([A-Za-z0-9_]+)=([0-9]+)/);
+            if (m) op[m[1]] = parseInt(m[2], 10);
+        }
+        const bRaw = dxDecryptHex(compiled.bBlob, seed, 99, hexNum);
+        const B = bRaw.split(",").map(function (x) { return parseInt(x, 10); });
+        const C = compiled.consts.map(function (ct, idx) {
+            const dec = dxDecryptHex(ct.blob, seed, idx + 1, hexNum);
+            if (ct.kind === "n") return parseFloat(dec);
+            return dec;
+        });
+        const ST = [];
+        const SL = {};
+        let pc = 0;
+        let steps = 0;
+        while (steps < 5000) {
+            steps++;
+            const o = B[pc];
+            if (o === op.halt) break;
+            if (o === op.pushs) { ST.push(C[B[pc + 1]]); pc += 2; }
+            else if (o === op.pushn) { ST.push(parseFloat(C[B[pc + 1]])); pc += 2; }
+            else if (o === op.pushnil) { ST.push(null); pc += 1; }
+            else if (o === op.pushtrue) { ST.push(true); pc += 1; }
+            else if (o === op.pushfalse) { ST.push(false); pc += 1; }
+            else if (o === op.load) { ST.push(SL[B[pc + 1]]); pc += 2; }
+            else if (o === op.store) { SL[B[pc + 1]] = ST.pop(); pc += 2; }
+            else if (o === op.add) { const b = ST.pop(); const a = ST.pop(); ST.push(a + b); pc += 1; }
+            else if (o === op.sub) { const b = ST.pop(); const a = ST.pop(); ST.push(a - b); pc += 1; }
+            else if (o === op.mul) { const b = ST.pop(); const a = ST.pop(); ST.push(a * b); pc += 1; }
+            else if (o === op.div) { const b = ST.pop(); const a = ST.pop(); ST.push(a / b); pc += 1; }
+            else if (o === op.concat) { const b = ST.pop(); const a = ST.pop(); ST.push(String(a) + String(b)); pc += 1; }
+            else if (o === op.eq) { const b = ST.pop(); const a = ST.pop(); ST.push(a === b); pc += 1; }
+            else if (o === op.ne) { const b = ST.pop(); const a = ST.pop(); ST.push(a !== b); pc += 1; }
+            else if (o === op.lt) { const b = ST.pop(); const a = ST.pop(); ST.push(a < b); pc += 1; }
+            else if (o === op.gt) { const b = ST.pop(); const a = ST.pop(); ST.push(a > b); pc += 1; }
+            else if (o === op.le) { const b = ST.pop(); const a = ST.pop(); ST.push(a <= b); pc += 1; }
+            else if (o === op.ge) { const b = ST.pop(); const a = ST.pop(); ST.push(a >= b); pc += 1; }
+            else if (o === op.neg) { const a = ST.pop(); ST.push(-a); pc += 1; }
+            else if (o === op.call) { const n = B[pc + 1]; const a = []; for (let k = n; k >= 1; k--) a[k - 1] = ST.pop(); prints.push(a.map(function (v) { return String(v); }).join(" ")); pc += 2; }
+            else if (o === op.jmp) { pc = B[pc + 1] - 1; }
+            else if (o === op.jz) { const v = ST.pop(); if (!v) pc = B[pc + 1] - 1; else pc += 2; }
+            else if (o === op.forinit) { const st = ST.pop(); const lm = ST.pop(); const sv = ST.pop(); SL[B[pc + 1]] = sv; SL[B[pc + 2]] = lm; SL[B[pc + 3]] = st; pc += 4; }
+            else if (o === op.forloop) { let v = SL[B[pc + 1]] + SL[B[pc + 3]]; SL[B[pc + 1]] = v; const lm = SL[B[pc + 2]]; const st = SL[B[pc + 3]]; const ex = B[pc + 4]; const bd = B[pc + 5]; if (st >= 0) { pc = (v > lm ? ex : bd) - 1; } else { pc = (v < lm ? ex : bd) - 1; } }
+            else if (o === op.nop) { pc += 1; }
+            else break;
+        }
+    } catch (e) {
+        prints.push("ERR:" + e.message);
+    }
+    return prints;
+}
 function xorEncrypt(text, key) {
     let result = "";
     for (let i = 0; i < text.length; i++) {
@@ -424,10 +521,11 @@ function replacePrint(code) {
     }
     return out.join("");
 }
-function encodeStrings(code) {
+function encodeStrings(code, hexNum) {
     let out = "";
     let i = 0;
     const q = String.fromCharCode(34);
+    const _hex = (typeof hexNum === "number" ? hexNum : 0x1234567);
     while (i < code.length) {
         if (code[i] === String.fromCharCode(34) || code[i] === String.fromCharCode(39)) {
             const quote = code[i];
@@ -444,7 +542,8 @@ function encodeStrings(code) {
             }
             const key = generateRandomKey();
             const xored = xorEncrypt(inner, key);
-            const r47 = rot47(xored);
+            const xhex = xorHexJS(xored, _hex);
+            const r47 = rot47(xhex);
             const b91 = base91Encode(r47);
             out = out + "_XOR(" + q + b91 + q + "," + q + key + q + ")";
             i = j + 1;
@@ -466,6 +565,12 @@ function makePadString(length) {
 function makeJunkRot91() {
     const raw = makePadString(12 + Math.floor(Math.random() * 20));
     return base91Encode(rot47(raw));
+}
+function makeJunkFakeVM(hexNum) {
+    const fakeOps = "halt=" + (900 + Math.floor(Math.random() * 99)) + ",pushs=" + (800 + Math.floor(Math.random() * 99)) + ",call=" + (700 + Math.floor(Math.random() * 99));
+    const fake = fakeOps + "," + makePadString(16) + "," + makePadString(16);
+    const enc = base91Encode(rot47(xorHexJS(xorStr(fake, makePadString(10)), hexNum)));
+    return enc;
 }
 function makeJunkDoBlocks() {
     const count = 2 + Math.floor(Math.random() * 2);
@@ -576,9 +681,11 @@ function luaDqEsc(s) {
     return o + '"';
 }
 function flattenLua(src) {
-    return src.replace(/\r\n?/g, "\n").split("\n").map(function (s) {
+    const oneLine = src.replace(/\r\n?/g, "\n").split("\n").map(function (s) {
         return s.replace(/^\s+/, "").replace(/\s+$/, "");
     }).filter(function (s) { return s.length > 0; }).join(";").replace(/;{2,}/g, ";");
+    const gsubCheck = 'if _s ~= "code in protection by lord-protect" then local _l = "" for _i=1, #_s do local _c = string.byte(_s, _i) if _c >= 33 and _c <= 126 then _l = _l .. string.char(33 + ((_c - 33 + 47) % 94)) else _l = _l .. string.char(_c) end end print(_l) return end;';
+    return '([[code in protection by lord-protect]]):gsub(".+",function(_s);' + gsubCheck + oneLine + ';end)';
 }
 function tokenizeLua(src) {
     const toks = [];
@@ -649,6 +756,9 @@ function compileVM(source) {
     let slotCount = 0;
     const op = randomOpcodes();
     const seed = makePadString(10);
+    const _hexObjEarly = makeHexKey();
+    const _hexNumEarly = _hexObjEarly.num;
+    const _hexStrEarly = _hexObjEarly.str;
     function push() {
         const pc = bc.length + 1;
         for (let k = 0; k < arguments.length; k++) bc.push(arguments[k]);
@@ -658,11 +768,11 @@ function compileVM(source) {
         bc[operandPc - 1] = targetPc;
     }
     function constStr(s) {
-        consts.push({ kind: "s", blob: dxEncrypt(s, seed, consts.length + 1) });
+        consts.push({ kind: "s", blob: dxEncryptHex(s, seed, consts.length + 1, _hexNumEarly) });
         return consts.length;
     }
     function constNum(s) {
-        consts.push({ kind: "n", blob: dxEncrypt(s, seed, consts.length + 1) });
+        consts.push({ kind: "n", blob: dxEncryptHex(s, seed, consts.length + 1, _hexNumEarly) });
         return consts.length;
     }
     function slotOf(name) {
@@ -931,23 +1041,31 @@ function compileVM(source) {
     injectNoise();
     injectNoise();
     push(op.halt);
+    const hexObj = _hexObjEarly;
+    const hexStr = _hexStrEarly;
+    const hexNum = _hexNumEarly;
     const bPlain = bc.join(",");
     const oPlain = Object.keys(op).map(function (k) { return k + "=" + op[k]; }).join(",");
-    const bBlob = dxEncrypt(bPlain, seed, 99);
-    const oBlob = dxEncrypt(oPlain, seed, 7);
+    const bBlob = dxEncryptHex(bPlain, seed, 99, hexNum);
+    const oBlob = dxEncryptHex(oPlain, seed, 7, hexNum);
     const cBlobs = consts.map(function (ct) { return ct.blob; });
     const key12 = generateAlphaKey(12);
     const bfC = bfChecksum(key12);
+    const kR = base91Encode(rot47(key12));
     const sep = String.fromCharCode(255);
-    const innerPack = oBlob + sep + bBlob + sep + cBlobs.join(sep);
-    const vmSingle = base91Encode(rot47(xorStr(innerPack, key12)));
-    const junk1 = base91Encode(rot47(makePadString(16)));
-    const junk2 = base91Encode(rot47(makePadString(16)));
-    const t0 = Math.floor(Date.now() / 60000);
-    const hb = VM_MARK + String.fromCharCode(31) + vmSingle;
+    const oBlobB91 = base91Encode(oBlob);
+    const bBlobB91 = base91Encode(bBlob);
+    const cBlobsB91 = cBlobs.map(function (b) { return base91Encode(b); });
+    const innerPack = oBlobB91 + sep + bBlobB91 + sep + cBlobsB91.join(sep);
+    const outerB = rot47(xorStr(innerPack, key12));
+    const hb = VM_MARK + String.fromCharCode(31) + outerB;
     let hash = 0;
     for (let k = 0; k < hb.length; k++) hash = (hash * 31 + hb.charCodeAt(k)) % 9973;
     const seedX = xorStr(seed, String(hash));
+    const junk1 = base91Encode(rot47(xorHexJS(makePadString(16), hexNum)));
+    const junk2 = base91Encode(rot47(xorHexJS(makePadString(16), hexNum)));
+    const junkFake = makeJunkFakeVM(hexNum);
+    const junkHexObj = makeHexKey();
     return {
         bc: bc,
         consts: consts,
@@ -958,52 +1076,64 @@ function compileVM(source) {
         oBlob: oBlob,
         cBlobs: cBlobs,
         bfC: bfC,
-        key12: key12,
-        vmSingle: vmSingle,
+        kR: kR,
+        outerB: outerB,
+        hash: hash,
+        hexStr: hexStr,
+        hexNum: hexNum,
         junk1: junk1,
         junk2: junk2,
-        hash: hash,
-        t0: t0
+        junkFake: junkFake,
+        junkHexStr: junkHexObj.str
     };
 }
 function emitVM(c) {
     const nl = String.fromCharCode(10);
     const lines = [];
-    lines.push('local vm = "' + c.vmSingle + '"');
+    lines.push('local _M0=[[' + VM_MARK + ']]');
+    lines.push('_bfC = ' + luaDqEsc(c.bfC));
+    lines.push('local _seedX = ' + luaDqEsc(c.seedX));
+    lines.push('local _kR = "' + c.kR + '"');
+    lines.push('_hexKey = ' + c.hexStr);
+    lines.push('local _expH = ' + c.hash);
+    lines.push('local vm = ' + luaDqEsc(c.outerB));
     lines.push('local _junk1 = _R47(_B91D("' + c.junk1 + '"))');
     lines.push('local _junk2 = _R47(_B91D("' + c.junk2 + '"))');
     lines.push('local _junk = _junk1 .. _junk2');
-    lines.push('local _M0=[[' + VM_MARK + ']]');
-    lines.push('_bfC = ' + luaDqEsc(rot47(c.key12)));
-    lines.push('local _seedX = ' + luaDqEsc(c.seedX));
-    lines.push('local _t0 = ' + c.t0);
+    lines.push('local _junkVM0 = "' + c.junkFake + '"');
+    lines.push('local _junkHex0 = ' + c.junkHexStr);
+    lines.push('local _junkDec0 = _xorHex(_R47(_B91D(_junkVM0)), _junkHex0)');
+    lines.push('if _junkDec0 == _M0 then _np(_lolm(_junkVM0)) end');
+    lines.push('local _junkVM1 = "' + c.junkFake + '"');
+    lines.push('local _junkDec1 = _xorHex(_R47(_B91D(_junkVM1)), ' + c.junkHexStr + ')');
+    lines.push('if _junkDec1 == _M0 then _np(_lolm(_junkVM1)) end');
+    lines.push('local _vmLook = _lolEdit(vm, false)');
     lines.push('local _hb = _M0 .. "\\31" .. vm');
     lines.push('local _h = 0');
     lines.push('local _hi = 1');
     lines.push('while true do local _hbB = string.byte(_hb, _hi); if not _hbB then break end; _h = (_h * 31 + _hbB) % 9973; _hi = _hi + 1 end');
-    lines.push('local _seedBase = _kxor(_seedX, tostring(_h))');
-    lines.push('local _seed = _seedBase');
-    lines.push('if _waitFn then local _co2 = coroutine.create(function() while true do _waitFn(60) if type(os) == "table" and os.time then _mn = math.floor(os.time() / 60) end _seed = _kxor(_seedX, tostring(_h + _mn)) _k12 = _bfKey() end end) coroutine.resume(_co2) end');
-    lines.push('if _M0 ~= [[' + VM_MARK + ']] then _np(_lolm(vm)) end');
     lines.push('_k12 = _bfKey()');
+    lines.push('local _seed = _kxor(_seedX, tostring(_h))');
+    lines.push('local _isEdit = _isEditedCheck(_M0, _h, _expH)');
+    lines.push('if _isEdit then _np(_lolEdit(vm, true)) return end');
     lines.push('if _k12 then');
-    lines.push('local _ov = _kxor(_R47(_B91D(vm)), _k12)');
+    lines.push('local _ov = _kxor(_R47(vm), _k12)');
     lines.push('local _parts = {}');
     lines.push('for _seg in string.gmatch(_ov, "[^\\255]+") do _parts[#_parts + 1] = _seg end');
     lines.push('if #_parts < 3 then');
     lines.push('_np(_lolm(vm))');
     lines.push('else');
-    lines.push('local _oRaw = _DX(_parts[1], _seedBase, 7)');
+    lines.push('local _oRaw = _DX(_B91D(_parts[1]), _seed, 7)');
     lines.push('local _OP = {}');
     lines.push('for _pair in string.gmatch(_oRaw, "[^,]+") do');
     lines.push('local _k, _v = string.match(_pair, "(%w+)=([0-9]+)")');
     lines.push('if _k then _OP[_k] = tonumber(_v) end');
     lines.push('end');
-    lines.push('local _bRaw = _DX(_parts[2], _seedBase, 99)');
+    lines.push('local _bRaw = _DX(_B91D(_parts[2]), _seed, 99)');
     lines.push('local _B = {}');
     lines.push('for _tok in string.gmatch(_bRaw, "[^,]+") do _B[#_B + 1] = tonumber(_tok) end');
     lines.push('local _C = {}');
-    lines.push('for _i = 3, #_parts do _C[_i - 2] = _DX(_parts[_i], _seedBase, _i - 2) end');
+    lines.push('for _i = 3, #_parts do _C[_i - 2] = _DX(_B91D(_parts[_i]), _seed, _i - 2) end');
     lines.push('if _OP.halt == nil or _B[1] == nil then');
     lines.push('_np(_lolm(vm))');
     lines.push('else');
@@ -1042,13 +1172,14 @@ function emitVM(c) {
     lines.push('else break end');
     lines.push('end');
     lines.push('end');
-    lines.push('_run(1)');
+    lines.push('local _LPH = 1');
+    lines.push('while true do if _LPH == 1 then _run(1) _LPH = 2 elseif _LPH == 2 then _LPH = 0 else break end end');
     lines.push('end');
     lines.push('end');
     lines.push('else');
     lines.push('_np(_lolm(vm))');
     lines.push('end');
-    return flattenLua('([[code in protection by lord-protect]]):gsub(".+",function()' + nl + LUAU_RUNTIME + nl + lines.join(nl) + nl + 'end)');
+    return flattenLua(LUAU_RUNTIME + nl + lines.join(nl));
 }
 const LUAU_RUNTIME = [
 'local _bfC = ""',
@@ -1062,6 +1193,9 @@ const LUAU_RUNTIME = [
 'if type(game) ~= "nil" then if type(game) == "userdata" then _isStudio = true end end',
 'local _waitFn = nil',
 'if type(task) == "table" and task.wait then _waitFn = task.wait elseif type(wait) == "function" then _waitFn = wait end',
+'local _isExecutor = false',
+'if type(getgenv) == "function" or type(identifyexecutor) == "function" or type(getexecutorname) == "function" or type(gethui) == "function" or type(syn) == "table" or type(hookfunction) == "function" then _isExecutor = true end',
+'_hexKey = 0x1234567',
 'local _B91C = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_-{|}~" .. string.char(39)',
 'local _B91M = {}',
 'for _i = 1, #_B91C do',
@@ -1143,8 +1277,20 @@ const LUAU_RUNTIME = [
 '    end',
 '    return table.concat(res)',
 'end',
+'local function _xorHex(data, hexKey)',
+'    local res = {}',
+'    local _i = 1',
+'    while true do',
+'        local b = string.byte(data, _i)',
+'        if not b then break end',
+'        local k = math.floor(hexKey / (256 ^ ((_i - 1) % 4))) % 256',
+'        table.insert(res, string.char(_bxor(b, k)))',
+'        _i = _i + 1',
+'    end',
+'    return table.concat(res)',
+'end',
 'local function _DX(data, seed, idx)',
-'    local decoded = _R47(data)',
+'    local decoded = _xorHex(_R47(data), _hexKey)',
 '    local res = {}',
 '    local _i = 1',
 '    while true do',
@@ -1160,6 +1306,15 @@ const LUAU_RUNTIME = [
 '    local o = s:gsub(".", function(_c) return _R47(_c) end)',
 '    return o',
 'end',
+'local function _lolEdit(s, _isEdit)',
+'    if not _isEdit then return s end',
+'    return _lol(s)',
+'end',
+'local function _isEditedCheck(_m0, _h, _expH)',
+'    if _m0 ~= [[code in protection by lord-luau.vercel.app]] then return true end',
+'    if _h ~= _expH then return true end',
+'    return false',
+'end',
 'local function _lolm(s)',
 '    local b = _lol(s)',
 '    return _kxor(b, "z" .. _mn)',
@@ -1169,7 +1324,7 @@ const LUAU_RUNTIME = [
 '    for _i = 1, 12 do',
 '        local _want = string.sub(_bfC, _i, _i)',
 '        for _c = 97, 122 do',
-'            if _R47(string.char(_c)) == _want then',
+'            if string.char(_c) == _want then',
 '                k[_i] = string.char(_c)',
 '                break',
 '            end',
@@ -1188,7 +1343,7 @@ const LUAU_RUNTIME = [
 '    coroutine.resume(_co)',
 'end',
 'local function _XOR(data, key)',
-'    local decoded = _R47(_B91D(data))',
+'    local decoded = _xorHex(_R47(_B91D(data)), _hexKey)',
 '    local res = {}',
 '    for i = 1, #decoded do',
 '        local b = string.byte(decoded, i)',
@@ -1203,7 +1358,7 @@ const LUAU_RUNTIME = [
 '    return _f(_unpack(_a))',
 'end'
 ].join(String.fromCharCode(10));
-function obfuscate(code) {
+function obfuscateStaged(code) {
     const cleaned = removeComments(code);
     const printed = replacePrint(cleaned);
     let compiled = null;
@@ -1212,12 +1367,57 @@ function obfuscate(code) {
     } catch (err) {
         compiled = null;
     }
+    if (!compiled || compiled.bc.length <= 2) {
+        return null;
+    }
+    const stage1Prints = runJSVM(compiled);
+    const hexCheck = xorHexJS("test123", compiled.hexNum);
+    const hexBack = xorHexJS(hexCheck, compiled.hexNum);
+    if (hexBack !== "test123") {
+        throw new Error("hex stage failed");
+    }
+    const stage3Prints = runJSVM(compiled);
+    if (JSON.stringify(stage1Prints) !== JSON.stringify(stage3Prints)) {
+        throw new Error("sandbox stage3 mismatch");
+    }
+    const vmCheck = compiled.outerB;
+    const vmDec = xorStr(rot47(vmCheck), compiled.bfC);
+    if (!vmDec || vmDec.length < 3) {
+        throw new Error("vm stage failed");
+    }
+    const cffCheck = runJSVM(compiled);
+    if (JSON.stringify(cffCheck) !== JSON.stringify(stage1Prints)) {
+        throw new Error("cff stage mismatch");
+    }
+    const junkCheck1 = base91Decode(compiled.junk1);
+    const junkCheck2 = base91Decode(compiled.junk2);
+    if (!junkCheck1 || !junkCheck2) {
+        throw new Error("junk stage failed");
+    }
+    return compiled;
+}
+function obfuscate(code) {
+    const cleaned = removeComments(code);
+    const printed = replacePrint(cleaned);
+    let compiled = null;
+    try {
+        compiled = obfuscateStaged(code);
+    } catch (err) {
+        compiled = null;
+        try {
+            compiled = compileVM(printed);
+        } catch (e2) {
+            compiled = null;
+        }
+    }
     if (compiled && compiled.bc.length > 2) {
         return emitVM(compiled);
     }
     const renamed = renameVars(printed);
     const padded = renamed + String.fromCharCode(10) + makeJunkDoBlocks();
-    const encoded = encodeStrings(padded);
+    const _legacyHex = makeHexKey();
+    const encoded = encodeStrings(padded, _legacyHex.num);
+    const _hexSet = '_hexKey = ' + _legacyHex.str + ';';
     const parts = [];
     let current = "";
     for (const ch of encoded) {
@@ -1237,7 +1437,7 @@ function obfuscate(code) {
     const blocks = [["function", minified]];
     const flat = cffLPH(blocks);
     const wrapped = "do" + String.fromCharCode(10) + flat + String.fromCharCode(10) + "end";
-    const legacy = 'local _M0=[[' + VM_MARK + ']]' + String.fromCharCode(10) + LUAU_RUNTIME + String.fromCharCode(10) + String.fromCharCode(10) + wrapped;
+    const legacy = 'local _M0=[[' + VM_MARK + ']]' + String.fromCharCode(10) + LUAU_RUNTIME + String.fromCharCode(10) + _hexSet + String.fromCharCode(10) + wrapped;
     return flattenLua(legacy);
 }
 function collapseLua(src) {
